@@ -90,39 +90,23 @@
   </section>
 
   <section class="exp-section"><h2 id="setup">Setup</h2>
-    <h3>Models</h3>
+    <h3>Models and data</h3>
     <ul class="points">
-      <li><b>Qwen3.8-27B</b> (Qwen/Qwen3.8-27B, revision 1d4bf0f2): Qwen's open 27B vision-language model, run in its non-thinking mode so it answers directly without a reasoning block.</li>
-      <li><b>Muse Glimmer 30B</b> (meta-models/Muse-Glimmer-30B, revision a4e59da5): Meta's 30B agentic VLM, run with <code>reasoning_strength = low</code>. Its private <code>to=self</code> reasoning channel is discarded; only the final <code>to=user</code> channel is parsed.</li>
-      <li>Both are loaded in BF16 from pinned Hugging Face revisions with transformers 5.18, one model per process, batch size 1.</li>
-    </ul>
-    <h3>Benchmarks and sampling</h3>
-    <ul class="points">
-      <li><b>Five streaming video benchmarks.</b> Ego-MC-Bench (correcting mistakes while a user cooks), Wearable AI (long-video QA, conversational QA and proactive guidance on egocentric video), StreamingBench (real-time questions on a live stream), OVO-Bench (online probes: backward tracing, real-time perception, forward active responding) and ProactiveVideoQA (deciding when to reply to a standing question).</li>
-      <li><b>Five items per benchmark</b>, drawn uniformly without replacement after structural validation (46 malformed records were quarantined first). Seed 42; each benchmark's seed is derived from SHA256("42:&lt;benchmark&gt;") so the draw is reproducible. Both models get the same 25 items and the same media files.</li>
-      <li>Only the media needed for those 25 items was downloaded, and every file was decode-checked through the extent the protocol requires.</li>
+      <li><b>Models.</b> Qwen3.8-27B (non-thinking) and Muse Glimmer 30B (<code>reasoning_strength = low</code>, only the <code>to=user</code> channel is parsed). BF16, pinned revisions, batch size 1.</li>
+      <li><b>Benchmarks.</b> Ego-MC-Bench, Wearable AI, StreamingBench, OVO-Bench, ProactiveVideoQA. Five items each, sampled uniformly with seed 42 after structural validation; both models see the same items and media.</li>
     </ul>
     <h3>Streaming wrapper</h3>
     <ul class="points">
-      <li><b>Replay in media time.</b> The video advances one observation per second. At each call the model sees only the 8 most recent frames (long edge ≤ 672 px): never a frame after the current time, and never a frame from an interval the benchmark marks as unobserved.</li>
-      <li><b>Text the model also receives.</b> The public text available so far (the standing task or question, user turns, subtitles, its own earlier replies) and the memory it wrote on the previous call.</li>
-      <li><b>Recurrent memory.</b> A small JSON object with observed facts, completed steps, current state, pending commitments and uncertainties. The model rewrites it on every call; it is then bounded to 512 tokens / 2,048 characters by dropping the oldest entries, so nothing beyond the 8-frame window survives unless the model wrote it down.</li>
-      <li><b>Cadence.</b> The memory is refreshed every 2 s of media time. For the 9 items whose media is longer than 10 minutes the interval is 10 s, a declared deviation that keeps the run affordable. Benchmark-defined decision times (questions, chunk ends, probes) are unchanged; StreamingBench proactive items poll every second as in the official loop.</li>
+      <li><b>Window.</b> The video is replayed in media time at one frame per second. Each call sees only the 8 most recent frames (long edge ≤ 672 px): never a future frame, never an unobserved interval.</li>
+      <li><b>Memory.</b> A small JSON object (facts, completed steps, state, commitments, uncertainties) that the model rewrites on every call and that is bounded to 512 tokens. It is the only thing that survives beyond the window.</li>
+      <li><b>Text input.</b> The standing task or question, user turns and subtitles released so far, and the model's own earlier replies.</li>
+      <li><b>Cadence.</b> Memory refresh every 2 s; 10 s for the 9 items longer than 10 minutes (declared deviation). Benchmark decision times are unchanged.</li>
     </ul>
-    <h3>Decoding and output</h3>
+    <h3>Output and isolation</h3>
     <ul class="points">
-      <li>Greedy decoding with at most 4,096 new tokens per call. Each reply must be one JSON object with a <code>decision</code> (answer / speak / silent), the <code>text</code>, and the new <code>memory</code>. An invalid reply keeps the previous memory and is counted as a failed call (8 of 5,578).</li>
-      <li>Latency is recorded but not charged to the stream: a slow call never costs the next call observations or decision opportunities. Median latency per call was about 11 s for Qwen and 16 s for Muse.</li>
-    </ul>
-    <h3>Isolation</h3>
-    <ul class="points">
-      <li>The memory starts empty for every item and every model, and additionally resets whenever Ego-MC releases a new instruction. OVO probes that share a timestamp are answered from one frozen state so no probe can inform another.</li>
-      <li>Answer keys, reference replies and their timestamps are kept in a separate object that only the exporter and scorer read; the prompt builder cannot access them.</li>
-    </ul>
-    <h3>Hardware and software</h3>
-    <ul class="points">
-      <li>8 × NVIDIA H200 (3 Qwen shards, 5 Muse shards, items balanced by estimated call count), about 3.2 h wall time; peak allocated GPU memory 52 GiB (Qwen) and 57 GiB (Muse).</li>
-      <li>transformers 5.18.0, torch 2.14.1+cu130, torchcodec 0.17.0 (frame decoding), flash-linear-attention 0.5.2 (Qwen3.8 kernels).</li>
+      <li><b>Output.</b> Greedy decoding, ≤ 4,096 tokens. One JSON reply per call: <code>decision</code> (answer / speak / silent), <code>text</code>, <code>memory</code>. An invalid reply keeps the old memory and counts as a failed call (8 of 5,578).</li>
+      <li><b>Isolation.</b> Memory resets per item, per model and at every Ego-MC instruction; OVO probes at the same timestamp branch from one frozen state. Gold labels are readable by the scorer only. Latency (≈ 11 s Qwen, ≈ 16 s Muse per call) is not charged to the stream.</li>
+      <li><b>Compute.</b> 8 × H200, items sharded by estimated call count, ~3.2 h; transformers 5.18, torch 2.14.1, torchcodec 0.17.</li>
     </ul>
   </section>
 
