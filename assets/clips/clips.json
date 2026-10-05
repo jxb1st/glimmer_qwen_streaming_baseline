@@ -1,0 +1,66 @@
+[
+  [
+    "streamingbench_sample8.mp4",
+    "StreamingBench sample_8 \u00b7 Event Understanding \u00b7 gold D, Qwen D, Muse D"
+  ],
+  [
+    "streamingbench_sample424.mp4",
+    "StreamingBench sample_424 \u00b7 Text-Rich Understanding \u00b7 gold C, Qwen C, Muse C"
+  ],
+  [
+    "streamingbench_sample484.mp4",
+    "StreamingBench sample_484 \u00b7 Event Understanding \u00b7 gold A, Qwen C, Muse C"
+  ],
+  [
+    "streamingbench_sample139.mp4",
+    "StreamingBench sample_139 \u00b7 Causal Reasoning \u00b7 gold B, Qwen B, Muse B"
+  ],
+  [
+    "streamingbench_sample306.mp4",
+    "StreamingBench sample_306 \u00b7 Object Recognition \u00b7 gold C, Qwen C, Muse C"
+  ],
+  [
+    "egomc_GX010033_0-60s.mp4",
+    "Ego-MC GX010033, 0\u201360 s \u00b7 green = gold, blue = Qwen, orange = Muse"
+  ],
+  [
+    "egomc_GX010033_95-135s.mp4",
+    "Ego-MC GX010033, 95\u2013135 s \u00b7 green = gold, blue = Qwen, orange = Muse"
+  ],
+  [
+    "egomc_GX010065_300-345s.mp4",
+    "Ego-MC GX010065, 300\u2013345 s \u00b7 green = gold, blue = Qwen, orange = Muse"
+  ],
+  [
+    "wearable_egoproactive_7210ea1e.mp4",
+    "Wearable AI EgoProactive 7210ea1e \u00b7 \u201cHow do I create a DIY gift box from cardstock by folding and taping?\u201d \u00b7 0\u201345 s"
+  ],
+  [
+    "wearable_egoproactive_fddac0c9.mp4",
+    "Wearable AI EgoProactive fddac0c9 \u00b7 \u201cHow do I make a pipe cleaner flower?\u201d \u00b7 0\u201345 s"
+  ],
+  [
+    "wearable_egoproactive_51858592.mp4",
+    "Wearable AI EgoProactive 51858592 \u00b7 \u201cHow do I make a chocolate peanut butter protein shake?\u201d \u00b7 0\u201345 s"
+  ],
+  [
+    "pvqa_WEB_m4sWjNlPlVs.mp4",
+    "ProactiveVideoQA WEB m4sWjNlPlVs \u00b7 0\u201335 s"
+  ],
+  [
+    "pvqa_WEB_1rtBD13QbXE.mp4",
+    "ProactiveVideoQA WEB 1rtBD13QbXE \u00b7 0\u201311 s"
+  ],
+  [
+    "pvqa_EGO_c2d06df7-5d3.mp4",
+    "ProactiveVideoQA EGO c2d06df7-5d3 \u00b7 0\u201360 s"
+  ],
+  [
+    "pvqa_EGO_f7866811-103.mp4",
+    "ProactiveVideoQA EGO f7866811-103 \u00b7 0\u201360 s"
+  ],
+  [
+    "pvqa_VAD_Shoplifting0.mp4",
+    "ProactiveVideoQA VAD Shoplifting0 \u00b7 0\u201390 s"
+  ]
+]

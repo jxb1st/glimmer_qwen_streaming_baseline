@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Streaming VLM Smoke Test — Interactive Model Experiments</title>
 <link rel="stylesheet" href="style.css">
+<style>.media-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))} .fig video{aspect-ratio:auto;max-height:420px;object-fit:contain}</style>
 </head>
 <body>
 <div class="wrap">
@@ -22,72 +23,56 @@
       </div>
     </div>
     <p class="exp-summary">
-      Two ordinary offline VLMs are turned into online assistants with a causal 8-frame sliding visual window plus a
-      self-generated recurrent text memory, then replayed in media time on five randomly sampled items from each of five
-      streaming video benchmarks (Ego-MC-Bench, Wearable AI, StreamingBench, OVO-Bench, ProactiveVideoQA). All 50
-      model–item trajectories ran end to end (5,578 calls, 8 unparseable outputs); official or adapted scorers ran where
-      no LLM judge is required. Five items per benchmark establish that the pipeline works; they are not a model ranking.
+      Two offline VLMs are run as causal online assistants: they only ever see the 8 most recent frames (1 fps) plus a
+      short memory they wrote themselves on the previous call. Replayed in media time on 5 randomly sampled items from each
+      of five streaming video benchmarks (25 items, 50 trajectories, 5,578 calls). This is a pipeline smoke test, not a
+      benchmark result.
     </p>
   </header>
 
   <nav class="exp-toc" data-toc aria-label="Sections"></nav>
 
   <section class="exp-section"><h2 id="overview">Overview</h2>
-    <p>The goal was infrastructural: verify that dataset acquisition, causal video decoding, sliding-window inference with
-      recurrent memory, benchmark-format export and the available scorers work together for two 27–30B vision-language
-      models, and report the first numbers on a fixed, reproducible sample. Everything below was produced by one code
-      base (<code>streaming_smoke</code>) with pinned model revisions, pinned dataset revisions and a frozen manifest.</p>
+    <p>Question: can an ordinary VLM act as an online assistant when wrapped with a bounded visual window and a recurrent
+      text memory, and does the whole chain — data acquisition, causal decoding, inference, export, scoring — work across
+      benchmarks with very different interaction protocols? Outcome: all 50 model–item trajectories completed with no
+      runtime errors; 8 of 5,578 outputs were malformed JSON. The clips below show what the models saw and said.</p>
     <dl class="facts">
-      <dt>Models</dt><dd>Qwen/Qwen3.8-27B @ 1d4bf0f2 (non-thinking mode) · meta-models/Muse-Glimmer-30B @ a4e59da5 (reasoning_strength=low)</dd>
-      <dt>Benchmarks</dt><dd>Ego-MC-Bench (40 videos), Wearable AI val (3 × 700 rows), StreamingBench visual cohort (2,800 items), OVO-Bench (1,640 records), ProactiveVideoQA (1,427 question ids)</dd>
-      <dt>Sample</dt><dd>5 items per benchmark, uniform without replacement, seed 42 → per-benchmark seed = first 8 bytes of SHA256("42:&lt;benchmark&gt;")</dd>
-      <dt>Hardware</dt><dd>NVIDIA H200 (143 GB), BF16, batch size 1, one model per process; 8 GPUs in parallel (3 Qwen shards, 5 Muse shards), ~3.2 h wall time</dd>
-      <dt>Software</dt><dd>transformers 5.18.0, torch 2.14.1+cu130, torchcodec 0.17.0, flash-linear-attention 0.5.2</dd>
+      <dt>Models</dt><dd>Qwen/Qwen3.8-27B @ 1d4bf0f2 (non-thinking) · meta-models/Muse-Glimmer-30B @ a4e59da5 (reasoning_strength = low)</dd>
+      <dt>Benchmarks</dt><dd>Ego-MC-Bench · Wearable AI (val) · StreamingBench (visual cohort) · OVO-Bench · ProactiveVideoQA</dd>
+      <dt>Sample</dt><dd>5 items per benchmark, uniform without replacement, seed 42 (per-benchmark seed = first 8 bytes of SHA256("42:&lt;benchmark&gt;"))</dd>
+      <dt>Hardware</dt><dd>8 × NVIDIA H200, BF16, batch size 1, one model per process; ~3.2 h wall time</dd>
     </dl>
   </section>
 
-  <section class="exp-section"><h2 id="research-question">Research Question</h2>
-    <p>Can an offline VLM act as a causal online assistant when it only ever sees the eight most recent frames and a short
-      memory it wrote itself — and does the whole chain (data → decoding → inference → export → scoring) hold up across
-      five benchmarks with different interaction protocols?</p>
-  </section>
-
-  <section class="exp-section"><h2 id="setup">Experimental Setup</h2>
+  <section class="exp-section"><h2 id="setup">Setup</h2>
     <dl class="facts">
-      <dt>Observations</dt><dd>1 frame per second of permitted media time; long edge capped at 672 px, no upscaling; both models receive the same frame bytes and timestamps</dd>
-      <dt>Visual window</dt><dd>At most the 8 most recent permitted observations; at a fractional query time the latest frame at or before that time is included; frames never come from the future or from unobserved intervals</dd>
-      <dt>Memory</dt><dd>Model-generated JSON (observed_facts, completed_steps, current_state, pending_commitments, uncertainties); bounded deterministically to ≤ 512 tokens / 2,048 characters by pruning oldest entries</dd>
-      <dt>Cadence</dt><dd>Memory refresh every 2 s; <b>10 s for items whose media exceeds 10 min</b> (declared deviation, 9 of 25 items); benchmark-defined question, interval-end and probe times are unchanged; StreamingBench proactive polls every 1 s</dd>
-      <dt>Decoding</dt><dd>Greedy, max 4,096 new tokens; Muse <code>to=self</code> reasoning stripped, only the terminated <code>to=user</code> channel is parsed; Qwen <code>enable_thinking=False</code></dd>
-      <dt>Time basis</dt><dd>Media time; a slow call never reduces the observations or decision opportunities of the next one; latency is recorded separately</dd>
-      <dt>Isolation</dt><dd>Memory resets between items and models; Ego-MC additionally resets at every released instruction; OVO probes at the same timestamp are answered from one frozen state and their memory changes are discarded</dd>
-      <dt>Visibility</dt><dd>Answer keys, gold dialogue and reference timestamps live in a private reference object the prompt builder cannot read; the only teacher-forcing exception (StreamingBench SQA official history) was not exercised because no SQA item was sampled</dd>
+      <dt>Observations</dt><dd>1 frame per second of permitted media time, long edge ≤ 672 px; identical frame bytes for both models</dd>
+      <dt>Window</dt><dd>The 8 most recent permitted frames; at a fractional query time the latest frame at or before it is added; never a future frame, never an unobserved interval</dd>
+      <dt>Memory</dt><dd>Model-written JSON (observed_facts, completed_steps, current_state, pending_commitments, uncertainties), bounded to ≤ 512 tokens / 2,048 characters</dd>
+      <dt>Cadence</dt><dd>Memory refresh every 2 s; 10 s for media longer than 10 min (declared deviation); benchmark decision times unchanged; StreamingBench proactive polls every 1 s</dd>
+      <dt>Decoding</dt><dd>Greedy, ≤ 4,096 new tokens; Muse's <code>to=self</code> channel discarded, only the terminated <code>to=user</code> channel parsed; Qwen <code>enable_thinking=False</code></dd>
+      <dt>Time basis</dt><dd>Media time: a slow call never costs the stream observations or decision opportunities; latency logged separately (Qwen ≈ 11 s, Muse ≈ 16 s per call)</dd>
+      <dt>Isolation</dt><dd>Memory resets between items and models; Ego-MC resets at every released instruction; OVO probes at the same timestamp branch from one frozen state</dd>
+      <dt>Visibility</dt><dd>Answer keys, gold dialogue and reference times are kept in a private object the prompt builder cannot read</dd>
+      <dt>Software</dt><dd>transformers 5.18.0 · torch 2.14.1+cu130 · torchcodec 0.17.0 · flash-linear-attention 0.5.2</dd>
     </dl>
-    <h3>Per-benchmark adapters</h3>
-    <ul>
-      <li><b>Ego-MC-Bench</b> (one annotated video per item, adapted per-recipe-step protocol): each <i>Instruction</i> is released at its timestamp as public task text and resets window + memory; user comments/questions are public; <i>Feedback</i>/<i>Success</i> are private targets. Monitoring polls at the memory cadence until the model's first <i>Success</i> in a step.</li>
-      <li><b>Wearable AI</b> (one validation row): EgoLongQA streams the whole clip and reveals the MCQ at the end (wrapper convention); EgoConv honours <code>video_intervals</code> and answers at each question turn with its own prior answers as history; EgoProactive makes the query public at the first interval and scores one <code>$silent$</code> / <code>$interrupt$</code> decision per interval end.</li>
-      <li><b>StreamingBench</b> (one real-time question, SQA group or proactive request): stream the permitted prefix and answer at the question timestamp; audio-required Omni-Source items (1,000) excluded from the population.</li>
-      <li><b>OVO-Bench</b> (one record with all probes): MCQ at <code>realtime</code> for backward/real-time tasks; CRR question public at <code>ask_time</code> with Yes/No probes; SSR/REC queries revealed at probe time; probes dispatched in timestamp order with original indices preserved.</li>
-      <li><b>ProactiveVideoQA</b> (one question id): user turns and TV subtitles revealed at their annotated times; the model polls at the cadence from the first turn to the media end and decides when to speak; exported as <code>model_response_list</code>.</li>
-    </ul>
   </section>
 
-  <section class="exp-section"><h2 id="method">Method / Pipeline</h2>
-    <ol class="pipeline"><li>Inventory + locks</li><li>Normalize annotations, quarantine</li><li>Seeded selection</li><li>Acquire selected media</li><li>Decode validation</li><li>Causal replay per item</li><li>Export</li><li>Score</li></ol>
-    <p>Each call receives: the current media time, the standing task text, the public dialogue so far (new lines marked),
-      the frame window with absolute timestamps, the previous memory, and one instruction for this call. It must return one
-      JSON object <code>{"decision": answer|speak|silent, "text": ..., "memory": {...}}</code>. A valid response updates the
-      memory; an invalid one keeps the previous memory and is logged as a failed call. Every call is checkpointed, so runs
-      resume exactly without duplicating or skipping decision points.</p>
-    <p>Quarantined before sampling (structural validation only): Ego-MC 1/40 (video starts without an instruction),
-      Wearable 44/2100 (22 dialog turns going backward in time, 21 question/turn mismatches, 1 bad interval),
-      StreamingBench 1/2800 (the <code>sample_7</code> SQA episode whose last turn precedes the previous one).</p>
+  <section class="exp-section"><h2 id="pipeline">Pipeline</h2>
+    <ol class="pipeline"><li>Inventory + locks</li><li>Normalize annotations</li><li>Seeded selection</li><li>Acquire selected media</li><li>Decode validation</li><li>Causal replay</li><li>Export</li><li>Score</li></ol>
+    <p>Per call: current media time → standing task text → public dialogue so far → the frame window with timestamps →
+      the previous memory → one call-specific instruction. The model returns one JSON object
+      <code>{"decision": answer|speak|silent, "text": …, "memory": {…}}</code>. A valid reply commits the memory; an invalid
+      one keeps the previous memory and is logged. Every call is checkpointed, so runs resume without duplicating or
+      skipping decision points. Per benchmark: Ego-MC releases each instruction at its timestamp and monitors for
+      Feedback/Success; Wearable EgoProactive scores one decision per chunk end; StreamingBench answers at the question
+      time; OVO dispatches probes in time order; ProactiveVideoQA polls and decides when to speak.</p>
   </section>
 
   <section class="exp-section"><h2 id="prompts">Prompts</h2>
     <div class="prompt system">
-      <div class="prompt-head">System prompt <span class="prompt-note">prompt_version v2, identical for both models</span></div>
+      <div class="prompt-head">System prompt <span class="prompt-note">v2, identical for both models</span></div>
       <pre class="prompt-body">You are an online video assistant watching a live stream. You only ever see the most recent frames of the stream (each labeled with its absolute time in seconds) plus a short written memory that you yourself produced on the previous call. Nothing else about earlier footage survives, so your memory must carry everything you will need later.
 
 Rules:
@@ -99,7 +84,7 @@ Rules:
 - decision must be &quot;answer&quot; when a question is asked of you now, &quot;speak&quot; when you choose to say something proactively, and &quot;silent&quot; otherwise (then text is &quot;&quot;).</pre>
     </div>
     <div class="prompt user">
-      <div class="prompt-head">User message structure <span class="prompt-note">built fresh for every call</span></div>
+      <div class="prompt-head">User message <span class="prompt-note">structure, rebuilt every call</span></div>
       <pre class="prompt-body">Current stream time: 128.0s.
 
 Standing task / request:
@@ -115,16 +100,16 @@ Most recent frames (8), oldest first:
 Your previous memory:
 {"observed_facts": [...], "completed_steps": [...], "current_state": "...", "pending_commitments": [...], "uncertainties": [...]}
 
-Released now:            ← only at a decision point: the MCQ, the step text, the probe question …
+Released now:                       ← only at a decision point
 {"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."]}
 
-Instruction for this call: &lt;one of the per-call instructions below&gt;
+Instruction for this call: &lt;one of the instructions below&gt;
 Return only the JSON object.</pre>
     </div>
     <div class="prompt variant">
-      <div class="prompt-head">Per-call instructions <span class="prompt-note">selected by call kind</span></div>
-      <details><summary>Show all eight instructions</summary>
-      <pre class="prompt-body">refresh (no decision):  No response is required at this moment: set decision to "silent" and text to "" and update your memory.
+      <div class="prompt-head">Per-call instructions <span class="prompt-note">one is chosen by call kind</span></div>
+      <details><summary>Show all eight</summary>
+      <pre class="prompt-body">refresh:  No response is required at this moment: set decision to "silent" and text to "" and update your memory.
 
 answer_mcq:  A multiple-choice question has just been released (see "Released now"). Answer it now: set decision to "answer" and put ONLY the letter of your chosen option (A, B, C or D) in text.
 
@@ -142,166 +127,49 @@ proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the 
       </details>
     </div>
     <div class="prompt response">
-      <div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s (raw channels)</span></div>
+      <div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s, raw channels</span></div>
       <pre class="prompt-body"> to=self&lt;|message|&gt;Current stream time 22.0s. Instruction: slice four half-inch baguette pieces. Frames show four slices cut … Set decision speak, Success.&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;{"decision": "speak", "text": "Success: Four half-inch baguette slices are cut and ready.", "memory": {"observed_facts": ["0s: baguette in paper bag on left counter", "12s: knife cutting first slice", "22s: four slices on board"], "completed_steps": ["22s: four half-inch baguette slices cut"], "current_state": "Four slices ready on the board", "pending_commitments": [], "uncertainties": []}}&lt;|eot|&gt;</pre>
     </div>
-    <p class="note">Prompt v1 had no explicit memory limits and produced 300–800-token memories (26 s per Qwen call). v2 adds hard per-field limits; the deterministic 512-token bound stays as a backstop and pruning is logged.</p>
   </section>
 
   <section class="exp-section"><h2 id="results">Quantitative Results</h2>
-    <p class="table-note">Five items per benchmark. Every denominator is the number actually exported. Absent subtasks are N/A, never zero. Judge-based metrics are blocked (no judge credentials).</p>
-    <div class="table-wrap">
-      <table class="results">
-        <thead><tr><th>Benchmark</th><th>Metric (evaluator)</th><th class="num">Qwen3.8-27B</th><th class="num">Muse Glimmer 30B</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr><td>Ego-MC-Bench</td><td>Instruction-completion acc. (n = 36 no-mistake steps)</td><td class="num best">0.28</td><td class="num">0.14</td><td>adapted_QICD_evaluator_for_EgoMC</td></tr>
-          <tr><td></td><td>Mistake precision / recall / F1</td><td class="num">0.00 / 0.00 / 0.00 (tp 0, fp 1, fn 43)</td><td class="num best">0.16 / 0.40 / 0.23 (tp 17, fp 90, fn 26)</td><td>adapted; |Δt| &lt; 15 s</td></tr>
-          <tr><td></td><td>Matched feedback ROUGE-L / BERTScore-F1</td><td class="num">N/A (0 matched)</td><td class="num">0.19 / 0.89 (35 matched)</td><td>adapted</td></tr>
-          <tr><td>Wearable AI</td><td>EgoLongQA MCQ accuracy</td><td class="num">0/1</td><td class="num best">1/1</td><td>official (starter kit)</td></tr>
-          <tr><td></td><td>EgoConv BLEU-4 (11 turns)</td><td class="num best">0.065</td><td class="num">0.040</td><td>official BLEU; LLM-judge blocked</td></tr>
-          <tr><td></td><td>EgoProactive macro-F1 / G-mean F1 (48 chunks)</td><td class="num best">0.44 / 0.40 (tp 20, fp 18, tn 4, fn 6)</td><td class="num">0.37 / 0.35 (tp 14, fp 17, tn 5, fn 12)</td><td>official (starter kit)</td></tr>
-          <tr><td>StreamingBench</td><td>Real-time MCQ accuracy (5 questions)</td><td class="num">4/5</td><td class="num">4/5</td><td>official formula; SQA / proactive N/A (not sampled)</td></tr>
-          <tr><td>OVO-Bench</td><td>HLD · STU · ACR · FPD (1 probe each)</td><td class="num">1 · 1 · 0 · 0</td><td class="num">1 · 0 · 0 · 0</td><td>official scorer; REC / SSR N/A</td></tr>
-          <tr><td></td><td>CRR (5 probes, one record)</td><td class="num">5/5</td><td class="num">5/5</td><td>official scorer</td></tr>
-          <tr><td>ProactiveVideoQA</td><td>PAUC</td><td class="num">—</td><td class="num">—</td><td>evaluation_blocked (gpt-4.1 judge); pred.jsonl exported</td></tr>
-        </tbody>
-      </table>
+    <p>None reported. Five items per benchmark only establish that acquisition, inference, export and the scorers run; the
+      per-item outcomes are shown in the clips below. Judge-based metrics (ProactiveVideoQA PAUC, Wearable ConvQA judge)
+      were not run.</p>
+  </section>
+
+  <section class="exp-section"><h2 id="visualization">Visualization</h2>
+    <p>Each clip is the segment the models streamed (480p re-encode, audio removed). Burned-in text: white = the public
+      task or question, green = gold annotation, blue = Qwen3.8-27B, orange = Muse Glimmer 30B, each shown at the media
+      time it was released or produced.</p>
+    <h3>StreamingBench — real-time MCQ (last 24 s before the question; answers appear at the end)</h3>
+    <div class="media-grid">
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample8.mp4"></video><figcaption>StreamingBench sample_8 · Event Understanding · gold D, Qwen D, Muse D</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample424.mp4"></video><figcaption>StreamingBench sample_424 · Text-Rich Understanding · gold C, Qwen C, Muse C</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample484.mp4"></video><figcaption>StreamingBench sample_484 · Event Understanding · gold A, Qwen C, Muse C</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample139.mp4"></video><figcaption>StreamingBench sample_139 · Causal Reasoning · gold B, Qwen B, Muse B</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample306.mp4"></video><figcaption>StreamingBench sample_306 · Object Recognition · gold C, Qwen C, Muse C</figcaption></figure>
     </div>
-    <h3>Run statistics</h3>
-    <div class="table-wrap">
-      <table class="results">
-        <thead><tr><th>Model</th><th>Benchmark</th><th class="num">Items complete</th><th class="num">Calls made / scheduled</th><th class="num">Unparseable</th><th class="num">Latency med / p95 (s)</th><th class="num">Peak alloc (GiB)</th></tr></thead>
-        <tbody>
-          <tr><td>Qwen3.8-27B</td><td>Ego-MC</td><td class="num">5/5</td><td class="num">734 / 835*</td><td class="num">0</td><td class="num">7.8 / 10.5</td><td class="num">52.0</td></tr>
-          <tr><td></td><td>Wearable AI</td><td class="num">5/5</td><td class="num">324 / 324</td><td class="num">0</td><td class="num">12.2 / 17.1</td><td class="num">52.4</td></tr>
-          <tr><td></td><td>StreamingBench</td><td class="num">5/5</td><td class="num">760 / 760</td><td class="num">0</td><td class="num">11.2 / 14.7</td><td class="num">52.0</td></tr>
-          <tr><td></td><td>OVO-Bench</td><td class="num">5/5</td><td class="num">412 / 412</td><td class="num">0</td><td class="num">13.5 / 15.1</td><td class="num">52.2</td></tr>
-          <tr><td></td><td>ProactiveVideoQA</td><td class="num">5/5</td><td class="num">459 / 459</td><td class="num">5</td><td class="num">11.8 / 16.9</td><td class="num">52.6</td></tr>
-          <tr><td>Muse Glimmer 30B</td><td>Ego-MC</td><td class="num">5/5</td><td class="num">767 / 835*</td><td class="num">2</td><td class="num">13.2 / 21.0</td><td class="num">56.6</td></tr>
-          <tr><td></td><td>Wearable AI</td><td class="num">5/5</td><td class="num">324 / 324</td><td class="num">0</td><td class="num">16.1 / 25.0</td><td class="num">56.9</td></tr>
-          <tr><td></td><td>StreamingBench</td><td class="num">5/5</td><td class="num">760 / 760</td><td class="num">1</td><td class="num">16.7 / 24.0</td><td class="num">56.4</td></tr>
-          <tr><td></td><td>OVO-Bench</td><td class="num">5/5</td><td class="num">412 / 412</td><td class="num">0</td><td class="num">16.0 / 21.7</td><td class="num">56.6</td></tr>
-          <tr><td></td><td>ProactiveVideoQA</td><td class="num">5/5</td><td class="num">459 / 459</td><td class="num">0</td><td class="num">16.4 / 24.5</td><td class="num">57.3</td></tr>
-        </tbody>
-      </table>
+    <h3>Ego-MC-Bench — recipe guidance (green = gold annotation, blue = Qwen, orange = Muse)</h3>
+    <div class="media-grid">
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010033_0-60s.mp4"></video><figcaption>Ego-MC GX010033, 0–60 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010033_95-135s.mp4"></video><figcaption>Ego-MC GX010033, 95–135 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010065_300-345s.mp4"></video><figcaption>Ego-MC GX010065, 300–345 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
     </div>
-    <p class="table-note">* Ego-MC monitoring polls are skipped by protocol after a predicted <i>Success</i> until the next instruction. Latency = prefill + decode per call under media-time replay (not charged to the stream). All 8 unparseable outputs were the same formatting slip: an extra <code>]</code> closing a memory list.</p>
-  </section>
-
-  <section class="exp-section"><h2 id="visualizations">Visualizations</h2>
-    <figure class="fig">
-      <img src="assets/egomc_timelines.png" alt="Timelines of gold feedback and success annotations versus each model's emitted Feedback and Success for the five Ego-MC videos">
-      <figcaption>Ego-MC-Bench: gold <i>Feedback</i> (red) and <i>Success</i> (green) annotations versus each model's emitted Feedback (orange) and Success (blue), per video; vertical lines mark released instructions.<span class="fig-desc">Qwen almost never emits Feedback (1 in 5 videos) but marks step completions; Muse intervenes often (107 Feedback emissions, 17 within 15 s of a gold mistake), including bursts of near-duplicate corrections.</span></figcaption>
-    </figure>
-  </section>
-
-  <section class="exp-section"><h2 id="demos">Video / Image Demos</h2>
-    <p>The exact 8-frame windows the models saw at two StreamingBench question times (1 fps, oldest first). Source clips are
-      not redistributed; these strips are the resized observations.</p>
-    <figure class="fig">
-      <img src="assets/streamingbench_139_window.jpg" alt="Eight consecutive frames of a painting tutorial, one per second, ending at 180 s">
-      <figcaption>sample_139, t = 180 s, Causal Reasoning: “Why did the hand reach towards the palette just now?”<span class="fig-desc">Gold B (to mix and pick up more paint). Qwen: B. Muse: B.</span></figcaption>
-    </figure>
-    <figure class="fig">
-      <img src="assets/streamingbench_484_window.jpg" alt="Eight consecutive frames of a slot-car race, one per second, ending at 585 s">
-      <figcaption>sample_484, t = 585 s, Event Understanding: “What is the sequence of the racecars when the racecars sprints?”<span class="fig-desc">Gold A (red followed by blue). Qwen: C. Muse: C (purple followed by blue). Both models carried the ordering through memory and got it wrong the same way.</span></figcaption>
-    </figure>
-  </section>
-
-  <section class="exp-section"><h2 id="qualitative">Qualitative Examples</h2>
-    <div class="compare">
-      <div class="compare-head">Wearable AI EgoProactive · “How do I make a pipe cleaner flower?” · first six official chunks</div>
-      <div class="compare-input"><span class="label">Input</span>Egocentric craft video, chunk ends at 2, 5, 8, 16, 21, 30 s; the model sees the last 8 frames and its memory at each chunk end.</div>
-      <div class="compare-grid">
-        <div class="compare-cell"><span class="label">Qwen3.8-27B</span><div class="model-name">6 × speak</div>“To start a pipe cleaner flower, take a pipe cleaner and bend it into a loop…” · “Now bend the yellow pipe cleaner into a loop…” · “Great, you've formed the center loop…” · “I see you've set the pipe cleaners aside and are checking your phone…”</div>
-        <div class="compare-cell"><span class="label">Muse Glimmer 30B</span><div class="model-name">4 × speak, 2 × silent</div>“Great, you've got pipe cleaners ready. Start by taking one pipe cleaner…” · “Good, you're working with the yellow pipe cleaner…” · silent at 21 s and 30 s while the user is distracted.</div>
-        <div class="compare-cell reference"><span class="label">Ground truth</span>interrupt · interrupt · silent · interrupt (“Let's get back on track…”) · interrupt (“quick nudge…”) · interrupt (“Bend another blue pipe cleaner…”)</div>
-      </div>
-      <div class="compare-obs"><span class="label">Observation</span>Qwen notices the distraction (phone) but phrases it as narration rather than a nudge; Muse goes silent exactly where the reference expects the nudge. Over the 48 scored chunks both models interrupt more often than the labels (Qwen fp 18 vs tp 20; Muse fp 17 vs tp 14).</div>
+    <h3>Wearable AI — EgoProactive (gold vs model decision at each chunk end)</h3>
+    <div class="media-grid">
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_7210ea1e.mp4"></video><figcaption>Wearable AI EgoProactive 7210ea1e · “How do I create a DIY gift box from cardstock by folding and taping?” · 0–45 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_fddac0c9.mp4"></video><figcaption>Wearable AI EgoProactive fddac0c9 · “How do I make a pipe cleaner flower?” · 0–45 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_51858592.mp4"></video><figcaption>Wearable AI EgoProactive 51858592 · “How do I make a chocolate peanut butter protein shake?” · 0–45 s</figcaption></figure>
     </div>
-    <div class="compare">
-      <div class="compare-head">Ego-MC-Bench · GX010033 (bruschetta) · steps 1–3</div>
-      <div class="compare-input"><span class="label">Gold interventions</span>26 s Feedback “The slices are too thick. Make them half an inch thick.” · later Success marks at 52, 128, 160 s …</div>
-      <div class="compare-grid">
-        <div class="compare-cell"><span class="label">Qwen3.8-27B</span>26 s Success: “You've sliced four half-inch pieces from the baguette.” · 108 s Success: “The toast is golden brown…” · no Feedback in the whole video</div>
-        <div class="compare-cell"><span class="label">Muse Glimmer 30B</span>22 s Success: “Four half-inch baguette slices are cut and ready.” · 53–54 s Feedback: “Stop slicing and put the baguette slices in the toaster now.” · 104–114 s six near-identical Feedback lines about the toaster</div>
-        <div class="compare-cell reference"><span class="label">Reference behaviour</span>One correction at 26 s (slice thickness), then silent until the step completes.</div>
-      </div>
-      <div class="compare-obs"><span class="label">Observation</span>Neither model detects the thickness mistake. Muse's feedback is premature process policing (“stop slicing”) repeated every 2 s because the memory does not record that it already spoke; Qwen's silence yields zero false positives but zero recall.</div>
+    <h3>ProactiveVideoQA — proactive replies to the user question</h3>
+    <div class="media-grid">
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_WEB_m4sWjNlPlVs.mp4"></video><figcaption>ProactiveVideoQA WEB m4sWjNlPlVs · 0–35 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_WEB_1rtBD13QbXE.mp4"></video><figcaption>ProactiveVideoQA WEB 1rtBD13QbXE · 0–11 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_EGO_c2d06df7-5d3.mp4"></video><figcaption>ProactiveVideoQA EGO c2d06df7-5d3 · 0–60 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_EGO_f7866811-103.mp4"></video><figcaption>ProactiveVideoQA EGO f7866811-103 · 0–60 s</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_VAD_Shoplifting0.mp4"></video><figcaption>ProactiveVideoQA VAD Shoplifting0 · 0–90 s</figcaption></figure>
     </div>
-    <div class="compare">
-      <div class="compare-head">ProactiveVideoQA VAD · Shoplifting001 · “What suspicious or harmful activities … are happening in the video?”</div>
-      <div class="compare-grid">
-        <div class="compare-cell"><span class="label">Qwen3.8-27B</span>1 reply at 0 s: “So far the footage shows a normal retail aisle with no visible suspicious, harmful, or criminal activity.” Then 5 unparseable outputs (extra <code>]</code>) and silence.</div>
-        <div class="compare-cell"><span class="label">Muse Glimmer 30B</span>2 replies: 20 s “a person in an orange shirt reaching and leaning toward shelf items…”; 52 s “a person in a pink top enters the left edge of the frame…”.</div>
-        <div class="compare-cell reference"><span class="label">Reference</span>Timed reply spans describing the shoplifting act; PAUC needs the gpt-4.1 judge, so no score here.</div>
-      </div>
-      <div class="compare-obs"><span class="label">Observation</span>Both models answer early and descriptively instead of waiting for the event; this is where the judge-based PAUC would discriminate timing, and it is exactly the metric that is still blocked.</div>
-    </div>
-  </section>
-
-  <section class="exp-section"><h2 id="success">Success Cases</h2>
-    <div class="cases">
-      <div class="case success"><div class="case-title">OVO CRR, MovieNet tt0080761 (both models 5/5)</div><p>Question released at 397 s; probes at 397, 412 (not yet answerable) and 430, 438, 458 s (answerable). Both models said No, No, Yes, Yes, Yes — the memory carried the question across 60 s of 10-s refreshes.</p></div>
-      <div class="case success"><div class="case-title">StreamingBench text-rich and object questions</div><p>sample_424 “What text is displayed on the screen right now?” and sample_306 “primary color of the subway train” were answered correctly by both models from the current window alone.</p></div>
-      <div class="case success"><div class="case-title">Output contract</div><p>5,570 of 5,578 calls returned the required JSON; memory pruning was never needed after prompt v2 (no call exceeded the 512-token bound).</p></div>
-    </div>
-  </section>
-
-  <section class="exp-section"><h2 id="failure">Failure Cases</h2>
-    <div class="cases">
-      <div class="case failure"><div class="case-title">Mistake detection on Ego-MC</div><p>Qwen: 1 Feedback in 5 videos (recall 0). Muse: 90 false positives, mostly repeated every poll. The 2-s/10-s monitoring cadence with an 8-frame window gives neither model a stable notion of “already said”.</p></div>
-      <div class="case failure"><div class="case-title">Same wrong answer on sample_484</div><p>Both models answered C (purple, blue) to the racecar order question whose gold is A (red, blue); the sequence had to be reconstructed from memory across several minutes.</p></div>
-      <div class="case failure"><div class="case-title">JSON formatting slips</div><p>8 outputs (5 Qwen, 3 Muse) closed a memory list with an extra <code>]</code>; they are counted as failed calls, the previous memory was kept, and the trajectory is flagged.</p><div class="output">"uncertainties": ["79.0s: The intent of the third person … is not yet clear."]]}&lt;|im_end|&gt;</div></div>
-    </div>
-  </section>
-
-  <section class="exp-section"><h2 id="observations">Observations</h2>
-    <ul>
-      <li>The external adaptation works mechanically for both models: no run-time errors, 50/50 trajectories complete, resume and sharding behaved.</li>
-      <li>Behavioural styles differ sharply: Qwen is conservative (few proactive utterances, no false corrections, misses all mistakes); Muse is talkative (more interventions, higher recall, many repeats).</li>
-      <li>Per-call cost is dominated by generated tokens, not frames: prompt v2 cut Qwen from 26 s to ~11 s per call; Muse's low-effort reasoning channel still adds ~5 s.</li>
-      <li>Long items (9 of 25 exceed 10 min) ran at the 10-s cadence; this changes the memory trajectory and must be stated whenever these numbers are compared.</li>
-      <li>Five uniformly sampled items leave StreamingBench SQA/proactive and OVO REC/SSR unrepresented; the adapters and fixtures for them exist but were not scored.</li>
-    </ul>
-    <details class="expand"><summary>Selected items (frozen manifest)</summary><div class="expand-body">
-      <p>Ego-MC: GX010033, GX010036, GX010053, GX010054, GX010065 · Wearable: egoproactive 0299/0693/0212, egolongqa 0387, egoconv 0651 · StreamingBench real: samples 8, 424, 484, 139, 306 · OVO: 1262 (ACR), 634 (STU), 1499 (CRR), 390 (HLD), 1198 (FPD) · ProactiveVideoQA: WEB m4sWjNlPlVs.43, WEB 1rtBD13QbXE.16, EGO c2d06df7…-0-360, EGO f7866811…-0-360, VAD Shoplifting001.</p>
-    </div></details>
-  </section>
-
-  <section class="exp-section"><h2 id="conclusion">Conclusion</h2>
-    <p>Every model–benchmark pipeline ran end to end and produced exportable predictions; judge-free scores exist for four
-      benchmarks and PAUC-ready exports for the fifth. On this sample the sliding-window + memory wrapper turns both models
-      into functioning but weak online assistants: competent at window-local questions, unreliable at timing proactive
-      interventions, and prone to either silence (Qwen) or repetition (Muse). The numbers are smoke-test evidence, not a
-      comparison of the two models.</p>
-  </section>
-
-  <section class="exp-section"><h2 id="next-steps">Next Steps</h2>
-    <ul>
-      <li>Verify the adapted Ego-MC evaluator against the authors' Ego-MC binding before any larger run.</li>
-      <li>Obtain judge access (gpt-4.1 for PAUC; Llama-4-Maverick or an approved alternative for ConvQA).</li>
-      <li>Stratify or enlarge the sample so SQA, proactive, REC and SSR are represented.</li>
-      <li>Add a “what I already said” field or dedup rule to the memory contract to curb Muse's repeated feedback; consider constrained JSON decoding to remove the 0.14 % formatting failures.</li>
-      <li>Run the 2-s cadence on the long items as an ablation of the declared 10-s deviation.</li>
-    </ul>
-  </section>
-
-  <section class="exp-section"><h2 id="reproduction">Reproduction</h2>
-    <dl class="facts">
-      <dt>Code</dt><dd><code>experiments/glimmer_qwen_streaming_baseline/streaming_smoke/</code> in the interactive_model project (config hash a7320faf5ae01237, prompt v2)</dd>
-      <dt>Locks</dt><dd>model_lock.json (Qwen 1d4bf0f2…, Muse a4e59da5…), source_lock.json (dataset revisions + code commits), manifests/*.json (selected ids, population hash, derived seeds)</dd>
-      <dt>Environment</dt><dd>Python 3.12.14, torch 2.14.1+cu130, transformers 5.18.0, torchcodec 0.17.0, flash-linear-attention 0.5.2, rouge-score, bert_score</dd>
-    </dl>
-    <pre class="code" data-lang="bash">python -m streaming_smoke inventory --config configs/smoke.yaml
-python -m streaming_smoke sample    --config configs/smoke.yaml      # seed 42, 5 per benchmark
-python -m streaming_smoke acquire   --config configs/smoke.yaml      # selected media only
-python -m streaming_smoke validate  --config configs/smoke.yaml
-python -m tests.test_causal                                          # 23 causal / isolation / resume checks
-sbatch submit_jobs/streaming_smoke_run_qwen27b.slurm                 # 3-shard job array, --resume
-sbatch submit_jobs/streaming_smoke_run_muse30b.slurm                 # 5-shard job array, --resume
-python -m streaming_smoke score  --config configs/smoke.yaml
-python -m streaming_smoke report --config configs/smoke.yaml</pre>
   </section>
 
   <footer class="page-footer">
