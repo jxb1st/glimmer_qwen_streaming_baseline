@@ -1,66 +1,739 @@
 [
-  [
-    "streamingbench_sample8.mp4",
-    "StreamingBench sample_8 \u00b7 Event Understanding \u00b7 gold D, Qwen D, Muse D"
-  ],
-  [
-    "streamingbench_sample424.mp4",
-    "StreamingBench sample_424 \u00b7 Text-Rich Understanding \u00b7 gold C, Qwen C, Muse C"
-  ],
-  [
-    "streamingbench_sample484.mp4",
-    "StreamingBench sample_484 \u00b7 Event Understanding \u00b7 gold A, Qwen C, Muse C"
-  ],
-  [
-    "streamingbench_sample139.mp4",
-    "StreamingBench sample_139 \u00b7 Causal Reasoning \u00b7 gold B, Qwen B, Muse B"
-  ],
-  [
-    "streamingbench_sample306.mp4",
-    "StreamingBench sample_306 \u00b7 Object Recognition \u00b7 gold C, Qwen C, Muse C"
-  ],
-  [
-    "egomc_GX010033_0-60s.mp4",
-    "Ego-MC GX010033, 0\u201360 s \u00b7 green = gold, blue = Qwen, orange = Muse"
-  ],
-  [
-    "egomc_GX010033_95-135s.mp4",
-    "Ego-MC GX010033, 95\u2013135 s \u00b7 green = gold, blue = Qwen, orange = Muse"
-  ],
-  [
-    "egomc_GX010065_300-345s.mp4",
-    "Ego-MC GX010065, 300\u2013345 s \u00b7 green = gold, blue = Qwen, orange = Muse"
-  ],
-  [
-    "wearable_egoproactive_7210ea1e.mp4",
-    "Wearable AI EgoProactive 7210ea1e \u00b7 \u201cHow do I create a DIY gift box from cardstock by folding and taping?\u201d \u00b7 0\u201345 s"
-  ],
-  [
-    "wearable_egoproactive_fddac0c9.mp4",
-    "Wearable AI EgoProactive fddac0c9 \u00b7 \u201cHow do I make a pipe cleaner flower?\u201d \u00b7 0\u201345 s"
-  ],
-  [
-    "wearable_egoproactive_51858592.mp4",
-    "Wearable AI EgoProactive 51858592 \u00b7 \u201cHow do I make a chocolate peanut butter protein shake?\u201d \u00b7 0\u201345 s"
-  ],
-  [
-    "pvqa_WEB_m4sWjNlPlVs.mp4",
-    "ProactiveVideoQA WEB m4sWjNlPlVs \u00b7 0\u201335 s"
-  ],
-  [
-    "pvqa_WEB_1rtBD13QbXE.mp4",
-    "ProactiveVideoQA WEB 1rtBD13QbXE \u00b7 0\u201311 s"
-  ],
-  [
-    "pvqa_EGO_c2d06df7-5d3.mp4",
-    "ProactiveVideoQA EGO c2d06df7-5d3 \u00b7 0\u201360 s"
-  ],
-  [
-    "pvqa_EGO_f7866811-103.mp4",
-    "ProactiveVideoQA EGO f7866811-103 \u00b7 0\u201360 s"
-  ],
-  [
-    "pvqa_VAD_Shoplifting0.mp4",
-    "ProactiveVideoQA VAD Shoplifting0 \u00b7 0\u201390 s"
-  ]
+  {
+    "benchmark": "streamingbench",
+    "item": "sample_8",
+    "subtask": "Event Understanding",
+    "what": "Question at 256 s: “What is the outcome of Bernardo's penalty kick?”",
+    "outcome": "Gold D · Qwen D · Muse D",
+    "file": "streamingbench/streamingbench_real_0008_i0.mp4",
+    "poster": "streamingbench/streamingbench_real_0008_i0.jpg",
+    "seconds": 27.5,
+    "windows": [
+      [
+        229,
+        256
+      ]
+    ],
+    "mb": 0.68
+  },
+  {
+    "benchmark": "streamingbench",
+    "item": "sample_424",
+    "subtask": "Text-Rich Understanding",
+    "what": "Question at 490 s: “What text is displayed on the screen right now?”",
+    "outcome": "Gold C · Qwen C · Muse C",
+    "file": "streamingbench/streamingbench_real_0424_i0.mp4",
+    "poster": "streamingbench/streamingbench_real_0424_i0.jpg",
+    "seconds": 27.5,
+    "windows": [
+      [
+        463,
+        490
+      ]
+    ],
+    "mb": 0.44
+  },
+  {
+    "benchmark": "streamingbench",
+    "item": "sample_484",
+    "subtask": "Event Understanding",
+    "what": "Question at 585 s: “What is the sequence of the racecars when the racecars sprints?”",
+    "outcome": "Gold A · Qwen C · Muse C",
+    "file": "streamingbench/streamingbench_real_0484_i0.mp4",
+    "poster": "streamingbench/streamingbench_real_0484_i0.jpg",
+    "seconds": 27.5,
+    "windows": [
+      [
+        558,
+        586
+      ]
+    ],
+    "mb": 0.47
+  },
+  {
+    "benchmark": "streamingbench",
+    "item": "sample_139",
+    "subtask": "Causal Reasoning",
+    "what": "Question at 180 s: “Why did the hand reach towards the palette just now?”",
+    "outcome": "Gold B · Qwen B · Muse B",
+    "file": "streamingbench/streamingbench_real_0139_i1.mp4",
+    "poster": "streamingbench/streamingbench_real_0139_i1.jpg",
+    "seconds": 27.5,
+    "windows": [
+      [
+        153,
+        180
+      ]
+    ],
+    "mb": 0.27
+  },
+  {
+    "benchmark": "streamingbench",
+    "item": "sample_306",
+    "subtask": "Object Recognition",
+    "what": "Question at 534 s: “What is the primary color of the subway train?”",
+    "outcome": "Gold C · Qwen C · Muse C",
+    "file": "streamingbench/streamingbench_real_0306_i0.mp4",
+    "poster": "streamingbench/streamingbench_real_0306_i0.jpg",
+    "seconds": 27.5,
+    "windows": [
+      [
+        507,
+        534
+      ]
+    ],
+    "mb": 0.78
+  },
+  {
+    "benchmark": "ego_mc",
+    "item": "GX010033",
+    "subtask": "11 steps, 7 min",
+    "what": "Gold: 5 mistake feedbacks, 10 successes",
+    "outcome": "Qwen 0 feedback / 6 success · Muse 37 feedback / 2 success",
+    "file": "ego_mc/ego_mc_GX010033.mp4",
+    "poster": "ego_mc/ego_mc_GX010033.jpg",
+    "seconds": 98.7,
+    "windows": [
+      [
+        0,
+        11
+      ],
+      [
+        19,
+        29
+      ],
+      [
+        44,
+        60
+      ],
+      [
+        121,
+        138
+      ],
+      [
+        177,
+        187
+      ],
+      [
+        226,
+        236
+      ],
+      [
+        283,
+        293
+      ],
+      [
+        350,
+        364
+      ]
+    ],
+    "mb": 1.53
+  },
+  {
+    "benchmark": "ego_mc",
+    "item": "GX010054",
+    "subtask": "17 steps, 14 min",
+    "what": "Gold: 11 mistake feedbacks, 17 successes",
+    "outcome": "Qwen 0 feedback / 2 success · Muse 15 feedback / 4 success",
+    "file": "ego_mc/ego_mc_GX010054.mp4",
+    "poster": "ego_mc/ego_mc_GX010054.jpg",
+    "seconds": 99.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        39,
+        49
+      ],
+      [
+        78,
+        88
+      ],
+      [
+        190,
+        200
+      ],
+      [
+        271,
+        281
+      ],
+      [
+        323,
+        333
+      ],
+      [
+        359,
+        369
+      ],
+      [
+        577,
+        587
+      ],
+      [
+        634,
+        650
+      ],
+      [
+        678,
+        688
+      ]
+    ],
+    "mb": 1.38
+  },
+  {
+    "benchmark": "ego_mc",
+    "item": "GX010065",
+    "subtask": "9 steps, 8 min",
+    "what": "Gold: 9 mistake feedbacks, 9 successes",
+    "outcome": "Qwen 1 feedback / 6 success · Muse 50 feedback / 4 success",
+    "file": "ego_mc/ego_mc_GX010065.mp4",
+    "poster": "ego_mc/ego_mc_GX010065.jpg",
+    "seconds": 98.5,
+    "windows": [
+      [
+        0,
+        11
+      ],
+      [
+        63,
+        73
+      ],
+      [
+        117,
+        134
+      ],
+      [
+        197,
+        217
+      ],
+      [
+        218,
+        228
+      ],
+      [
+        244,
+        254
+      ],
+      [
+        394,
+        404
+      ],
+      [
+        445,
+        455
+      ]
+    ],
+    "mb": 1.95
+  },
+  {
+    "benchmark": "ego_mc",
+    "item": "GX010036",
+    "subtask": "16 steps, 18 min",
+    "what": "Gold: 7 mistake feedbacks, 16 successes",
+    "outcome": "Qwen 0 feedback / 5 success · Muse 11 feedback / 7 success",
+    "file": "ego_mc/ego_mc_GX010036.mp4",
+    "poster": "ego_mc/ego_mc_GX010036.jpg",
+    "seconds": 99.8,
+    "windows": [
+      [
+        0,
+        10
+      ],
+      [
+        16,
+        35
+      ],
+      [
+        71,
+        81
+      ],
+      [
+        94,
+        104
+      ],
+      [
+        372,
+        383
+      ],
+      [
+        475,
+        485
+      ],
+      [
+        521,
+        531
+      ],
+      [
+        545,
+        555
+      ],
+      [
+        586,
+        596
+      ]
+    ],
+    "mb": 1.77
+  },
+  {
+    "benchmark": "ego_mc",
+    "item": "GX010053",
+    "subtask": "17 steps, 20 min",
+    "what": "Gold: 11 mistake feedbacks, 17 successes",
+    "outcome": "Qwen 0 feedback / 8 success · Muse 12 feedback / 8 success",
+    "file": "ego_mc/ego_mc_GX010053.mp4",
+    "poster": "ego_mc/ego_mc_GX010053.jpg",
+    "seconds": 99.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        78,
+        88
+      ],
+      [
+        180,
+        190
+      ],
+      [
+        325,
+        335
+      ],
+      [
+        463,
+        479
+      ],
+      [
+        536,
+        546
+      ],
+      [
+        687,
+        697
+      ],
+      [
+        894,
+        904
+      ],
+      [
+        983,
+        993
+      ],
+      [
+        1015,
+        1025
+      ]
+    ],
+    "mb": 1.77
+  },
+  {
+    "benchmark": "wearable_ai",
+    "item": "7210ea1e",
+    "subtask": "EgoProactive",
+    "what": "“How do I create a DIY gift box from cardstock by folding and taping?” · 10 chunks, gold interrupts in 5",
+    "outcome": "Qwen interrupted 10 · Muse interrupted 7",
+    "file": "wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.mp4",
+    "poster": "wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.jpg",
+    "seconds": 88.5,
+    "windows": [
+      [
+        0,
+        5
+      ],
+      [
+        19,
+        29
+      ],
+      [
+        43,
+        61
+      ],
+      [
+        75,
+        85
+      ],
+      [
+        93,
+        103
+      ],
+      [
+        133,
+        143
+      ],
+      [
+        173,
+        183
+      ],
+      [
+        265,
+        280
+      ]
+    ],
+    "mb": 2.41
+  },
+  {
+    "benchmark": "wearable_ai",
+    "item": "fddac0c9",
+    "subtask": "EgoProactive",
+    "what": "“How do I make a pipe cleaner flower?” · 18 chunks, gold interrupts in 11",
+    "outcome": "Qwen interrupted 18 · Muse interrupted 10",
+    "file": "wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.mp4",
+    "poster": "wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.jpg",
+    "seconds": 97.6,
+    "windows": [
+      [
+        0,
+        98
+      ]
+    ],
+    "mb": 2.81
+  },
+  {
+    "benchmark": "wearable_ai",
+    "item": "871fb784",
+    "subtask": "EgoLongQA",
+    "what": "10-min clip streamed, question revealed at the end: “Which area of the canvas retained visible numbers the longest before I painted over it, and what color did I use to cover it?”",
+    "outcome": "Gold C · Qwen B · Muse C",
+    "file": "wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.mp4",
+    "poster": "wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.jpg",
+    "seconds": 46.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        143,
+        153
+      ],
+      [
+        293,
+        303
+      ],
+      [
+        443,
+        453
+      ],
+      [
+        587,
+        600
+      ]
+    ],
+    "mb": 1.13
+  },
+  {
+    "benchmark": "wearable_ai",
+    "item": "459ebb35",
+    "subtask": "EgoConv",
+    "what": "11 questions during a DailyActivities conversation; only the listed intervals are visible",
+    "outcome": "Free-form answers vs reference (BLEU-4: Qwen 0.065, Muse 0.040)",
+    "file": "wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.mp4",
+    "poster": "wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.jpg",
+    "seconds": 99.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        22,
+        34
+      ],
+      [
+        57,
+        69
+      ],
+      [
+        87,
+        99
+      ],
+      [
+        121,
+        133
+      ],
+      [
+        160,
+        172
+      ],
+      [
+        248,
+        260
+      ],
+      [
+        275,
+        287
+      ],
+      [
+        319,
+        331
+      ]
+    ],
+    "mb": 3.81
+  },
+  {
+    "benchmark": "wearable_ai",
+    "item": "51858592",
+    "subtask": "EgoProactive",
+    "what": "“How do I make a chocolate peanut butter protein shake?” · 20 chunks, gold interrupts in 10",
+    "outcome": "Qwen interrupted 10 · Muse interrupted 14",
+    "file": "wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.mp4",
+    "poster": "wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.jpg",
+    "seconds": 97.8,
+    "windows": [
+      [
+        0,
+        24
+      ],
+      [
+        39,
+        57
+      ],
+      [
+        77,
+        87
+      ],
+      [
+        101,
+        121
+      ],
+      [
+        124,
+        150
+      ]
+    ],
+    "mb": 3.97
+  },
+  {
+    "benchmark": "ovo_bench",
+    "item": "id 1262 · AutoEvalMetaData",
+    "subtask": "ACR",
+    "what": "1 probe(s) at 65 s",
+    "outcome": "Gold D · Qwen C · Muse C",
+    "file": "ovo_bench/ovo_bench_1262.mp4",
+    "poster": "ovo_bench/ovo_bench_1262.jpg",
+    "seconds": 13.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        58,
+        68
+      ]
+    ],
+    "mb": 0.3
+  },
+  {
+    "benchmark": "ovo_bench",
+    "item": "id 634 · YouTube_Games",
+    "subtask": "STU",
+    "what": "1 probe(s) at 472 s",
+    "outcome": "Gold B · Qwen B · Muse \"?\" (its literal answer)",
+    "file": "ovo_bench/ovo_bench_0634.mp4",
+    "poster": "ovo_bench/ovo_bench_0634.jpg",
+    "seconds": 13.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        465,
+        475
+      ]
+    ],
+    "mb": 0.21
+  },
+  {
+    "benchmark": "ovo_bench",
+    "item": "id 1499 · MovieNet",
+    "subtask": "CRR",
+    "what": "5 probe(s) at 397 s, 412 s, 430 s, 438 s, 458 s",
+    "outcome": "Gold No/No/Yes/Yes/Yes · Qwen No/No/Yes/Yes/Yes · Muse No/No/Yes/Yes/Yes",
+    "file": "ovo_bench/ovo_bench_1499.mp4",
+    "poster": "ovo_bench/ovo_bench_1499.jpg",
+    "seconds": 51.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        390,
+        400
+      ],
+      [
+        405,
+        415
+      ],
+      [
+        423,
+        441
+      ],
+      [
+        451,
+        461
+      ]
+    ],
+    "mb": 0.46
+  },
+  {
+    "benchmark": "ovo_bench",
+    "item": "id 390 · Ego4D",
+    "subtask": "HLD",
+    "what": "1 probe(s) at 302 s",
+    "outcome": "Gold B · Qwen B · Muse B",
+    "file": "ovo_bench/ovo_bench_0390.mp4",
+    "poster": "ovo_bench/ovo_bench_0390.jpg",
+    "seconds": 13.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        295,
+        305
+      ]
+    ],
+    "mb": 0.46
+  },
+  {
+    "benchmark": "ovo_bench",
+    "item": "id 1198 · Ego4D",
+    "subtask": "FPD",
+    "what": "1 probe(s) at 252 s",
+    "outcome": "Gold D · Qwen B · Muse B",
+    "file": "ovo_bench/ovo_bench_1198.mp4",
+    "poster": "ovo_bench/ovo_bench_1198.jpg",
+    "seconds": 13.0,
+    "windows": [
+      [
+        0,
+        3
+      ],
+      [
+        245,
+        255
+      ]
+    ],
+    "mb": 0.6
+  },
+  {
+    "benchmark": "proactivevideoqa",
+    "item": "m4sWjNlPlVs",
+    "subtask": "WEB",
+    "what": "“What is the person doing with the piece of paper?” · 3 reference replies, 0.6 min",
+    "outcome": "Qwen spoke 15× · Muse spoke 8×",
+    "file": "proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.mp4",
+    "poster": "proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.jpg",
+    "seconds": 35.0,
+    "windows": [
+      [
+        0,
+        35
+      ]
+    ],
+    "mb": 0.62
+  },
+  {
+    "benchmark": "proactivevideoqa",
+    "item": "1rtBD13QbXE",
+    "subtask": "WEB",
+    "what": "“What is being shown or described in the video?” · 2 reference replies, 0.2 min",
+    "outcome": "Qwen spoke 3× · Muse spoke 1×",
+    "file": "proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.mp4",
+    "poster": "proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.jpg",
+    "seconds": 11.0,
+    "windows": [
+      [
+        0,
+        11
+      ]
+    ],
+    "mb": 0.14
+  },
+  {
+    "benchmark": "proactivevideoqa",
+    "item": "c2d06df7-5d3a-",
+    "subtask": "EGO",
+    "what": "“What are the different ways in which the dough is kneaded during the preparation process?” · 3 reference replies, 6.0 min",
+    "outcome": "Qwen spoke 18× · Muse spoke 25×",
+    "file": "proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.mp4",
+    "poster": "proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.jpg",
+    "seconds": 99.7,
+    "windows": [
+      [
+        0,
+        43
+      ],
+      [
+        53,
+        63
+      ],
+      [
+        75,
+        93
+      ],
+      [
+        137,
+        149
+      ],
+      [
+        215,
+        231
+      ]
+    ],
+    "mb": 2.28
+  },
+  {
+    "benchmark": "proactivevideoqa",
+    "item": "f7866811-1030-",
+    "subtask": "EGO",
+    "what": "“How is the dough shaped during the preparation process?” · 1 reference replies, 6.0 min",
+    "outcome": "Qwen spoke 54× · Muse spoke 51×",
+    "file": "proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.mp4",
+    "poster": "proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.jpg",
+    "seconds": 95.0,
+    "windows": [
+      [
+        0,
+        73
+      ],
+      [
+        79,
+        101
+      ]
+    ],
+    "mb": 1.58
+  },
+  {
+    "benchmark": "proactivevideoqa",
+    "item": "Shoplifting001",
+    "subtask": "VAD",
+    "what": "“What suspicious or harmful activities, including unlawful, criminal behaviors or destructive accidents, are ha” · 1 reference replies, 2.4 min",
+    "outcome": "Qwen spoke 1× · Muse spoke 2×",
+    "file": "proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.mp4",
+    "poster": "proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.jpg",
+    "seconds": 26.3,
+    "windows": [
+      [
+        0,
+        6
+      ],
+      [
+        13,
+        23
+      ],
+      [
+        45,
+        55
+      ]
+    ],
+    "mb": 0.29
+  }
 ]

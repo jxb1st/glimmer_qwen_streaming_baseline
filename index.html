@@ -5,7 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Streaming VLM Smoke Test — Interactive Model Experiments</title>
 <link rel="stylesheet" href="style.css">
-<style>.media-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))} .fig video{aspect-ratio:auto;max-height:420px;object-fit:contain}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  body { font-family: Inter, -apple-system, "Segoe UI", sans-serif; font-size: 15.5px; line-height: 1.7; }
+  .wrap { max-width: 1040px; padding-top: 44px; }
+  h1 { font-size: 28px; line-height: 1.3; letter-spacing: -0.4px; }
+  .exp-summary { font-size: 15.5px; color: var(--muted); }
+  .exp-toc { background: transparent; border: 0; padding: 0; margin-bottom: 36px; }
+  .exp-toc ol { gap: 6px 10px; }
+  .exp-toc a { display: inline-block; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; }
+  .exp-toc a:hover { border-color: var(--accent); color: var(--accent); }
+  .exp-section { margin-bottom: 56px; }
+  .exp-section h2 { font-size: 21px; margin-bottom: 18px; padding-bottom: 10px; }
+  .exp-section p, .exp-section li { font-size: 15px; max-width: 72ch; }
+  .lead { color: var(--text); }
+  ul.points { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 10px; }
+  ul.points li { position: relative; padding-left: 20px; }
+  ul.points li::before { content: ""; position: absolute; left: 0; top: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .8; }
+  ul.points b { color: var(--text); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 0; }
+  .kv div { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kv dt { font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .kv dd { margin: 0; font-size: 14px; line-height: 1.55; }
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 20px; list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px 6px 10px; font-size: 13px; }
+  .steps li::before { content: counter(s); display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: rgba(77,171,247,.15); color: var(--accent); text-align: center; line-height: 20px; font-size: 11px; font-weight: 600; margin-right: 8px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 8px; border: 1px solid rgba(77,171,247,.4); background: rgba(77,171,247,.1); color: var(--accent); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .btn:hover { background: rgba(77,171,247,.18); }
+  .btn[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .chev { display: inline-block; transition: transform .15s; }
+  #prompts-body { margin-top: 18px; display: grid; gap: 14px; }
+  .prompt-body { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; line-height: 1.6; }
+  .prompt .prompt-head { font-size: 11px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .tab { font: inherit; font-size: 14px; font-weight: 500; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .tab span { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
+  .tab.active { color: var(--accent); border-color: var(--accent); background: rgba(77,171,247,.1); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .panel-desc { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .demo { margin: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .demo video { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: #000; display: block; }
+  .demo figcaption { padding: 12px 14px 14px; display: grid; gap: 5px; }
+  .demo-title { font-weight: 600; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .demo-sub { font-weight: 500; font-size: 12px; color: var(--purple); }
+  .demo-len { font-weight: 400; font-size: 11.5px; color: var(--muted); margin-left: auto; }
+  .demo-what { font-size: 13px; color: var(--muted); }
+  .demo-outcome { font-size: 13px; color: var(--text); font-family: "JetBrains Mono", ui-monospace, monospace; }
+  @media (max-width: 640px) { .kv { grid-template-columns: 1fr; } .demo-grid { grid-template-columns: 1fr; } }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -14,7 +64,7 @@
     <div class="exp-title-row">
       <span class="card-icon c2">SW</span>
       <div>
-        <h1>Sliding-Window Streaming VLM Smoke Test — Qwen3.8-27B vs Muse Glimmer 30B</h1>
+        <h1>Sliding-Window Streaming VLM Smoke Test</h1>
         <div class="exp-meta">
           <time datetime="2026-10-05">Oct 5, 2026</time>
           <span class="status completed">completed</span>
@@ -22,58 +72,52 @@
         </div>
       </div>
     </div>
-    <p class="exp-summary">
-      Two offline VLMs are run as causal online assistants: they only ever see the 8 most recent frames (1 fps) plus a
-      short memory they wrote themselves on the previous call. Replayed in media time on 5 randomly sampled items from each
-      of five streaming video benchmarks (25 items, 50 trajectories, 5,578 calls). This is a pipeline smoke test, not a
-      benchmark result.
-    </p>
+    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B run as causal online assistants: an 8-frame sliding window plus a
+      memory they write themselves, replayed in media time on 5 random items from each of 5 streaming benchmarks. A
+      pipeline smoke test with 50 trajectories, not a benchmark result.</p>
   </header>
 
   <nav class="exp-toc" data-toc aria-label="Sections"></nav>
 
   <section class="exp-section"><h2 id="overview">Overview</h2>
-    <p>Question: can an ordinary VLM act as an online assistant when wrapped with a bounded visual window and a recurrent
-      text memory, and does the whole chain — data acquisition, causal decoding, inference, export, scoring — work across
-      benchmarks with very different interaction protocols? Outcome: all 50 model–item trajectories completed with no
-      runtime errors; 8 of 5,578 outputs were malformed JSON. The clips below show what the models saw and said.</p>
-    <dl class="facts">
-      <dt>Models</dt><dd>Qwen/Qwen3.8-27B @ 1d4bf0f2 (non-thinking) · meta-models/Muse-Glimmer-30B @ a4e59da5 (reasoning_strength = low)</dd>
-      <dt>Benchmarks</dt><dd>Ego-MC-Bench · Wearable AI (val) · StreamingBench (visual cohort) · OVO-Bench · ProactiveVideoQA</dd>
-      <dt>Sample</dt><dd>5 items per benchmark, uniform without replacement, seed 42 (per-benchmark seed = first 8 bytes of SHA256("42:&lt;benchmark&gt;"))</dd>
-      <dt>Hardware</dt><dd>8 × NVIDIA H200, BF16, batch size 1, one model per process; ~3.2 h wall time</dd>
-    </dl>
+    <ul class="points">
+      <li><b>Question.</b> Can an offline VLM act as an online assistant when it only sees the 8 most recent frames and a short self-written memory?</li>
+      <li><b>Scope.</b> 2 models × 5 benchmarks × 5 sampled items = 50 trajectories, 5,578 model calls, ~3.2 h on 8 × H200.</li>
+      <li><b>Outcome.</b> Every trajectory completed; 8 outputs were malformed JSON; all predictions exported in each benchmark's format.</li>
+      <li><b>Takeaway.</b> Window-local questions are answered well; timing proactive help is not: Qwen stays quiet, Muse repeats itself.</li>
+    </ul>
   </section>
 
   <section class="exp-section"><h2 id="setup">Setup</h2>
-    <dl class="facts">
-      <dt>Observations</dt><dd>1 frame per second of permitted media time, long edge ≤ 672 px; identical frame bytes for both models</dd>
-      <dt>Window</dt><dd>The 8 most recent permitted frames; at a fractional query time the latest frame at or before it is added; never a future frame, never an unobserved interval</dd>
-      <dt>Memory</dt><dd>Model-written JSON (observed_facts, completed_steps, current_state, pending_commitments, uncertainties), bounded to ≤ 512 tokens / 2,048 characters</dd>
-      <dt>Cadence</dt><dd>Memory refresh every 2 s; 10 s for media longer than 10 min (declared deviation); benchmark decision times unchanged; StreamingBench proactive polls every 1 s</dd>
-      <dt>Decoding</dt><dd>Greedy, ≤ 4,096 new tokens; Muse's <code>to=self</code> channel discarded, only the terminated <code>to=user</code> channel parsed; Qwen <code>enable_thinking=False</code></dd>
-      <dt>Time basis</dt><dd>Media time: a slow call never costs the stream observations or decision opportunities; latency logged separately (Qwen ≈ 11 s, Muse ≈ 16 s per call)</dd>
-      <dt>Isolation</dt><dd>Memory resets between items and models; Ego-MC resets at every released instruction; OVO probes at the same timestamp branch from one frozen state</dd>
-      <dt>Visibility</dt><dd>Answer keys, gold dialogue and reference times are kept in a private object the prompt builder cannot read</dd>
-      <dt>Software</dt><dd>transformers 5.18.0 · torch 2.14.1+cu130 · torchcodec 0.17.0 · flash-linear-attention 0.5.2</dd>
+    <dl class="kv">
+      <div><dt>Models</dt><dd>Qwen/Qwen3.8-27B <small>@1d4bf0f2</small>, non-thinking<br>meta-models/Muse-Glimmer-30B <small>@a4e59da5</small>, reasoning_strength = low</dd></div>
+      <div><dt>Benchmarks</dt><dd>Ego-MC-Bench · Wearable AI (val) · StreamingBench (visual cohort) · OVO-Bench · ProactiveVideoQA</dd></div>
+      <div><dt>Sampling</dt><dd>5 items per benchmark, uniform, seed 42; per-benchmark seed = SHA256("42:&lt;benchmark&gt;")[:8]</dd></div>
+      <div><dt>Observations</dt><dd>1 frame / s of permitted media, long edge ≤ 672 px; same bytes for both models</dd></div>
+      <div><dt>Window</dt><dd>8 most recent frames; latest frame at or before a fractional query time; never a future frame or an unobserved interval</dd></div>
+      <div><dt>Memory</dt><dd>Model-written JSON (facts, steps, state, commitments, uncertainties), bounded to 512 tokens / 2,048 chars</dd></div>
+      <div><dt>Cadence</dt><dd>Refresh every 2 s; 10 s when media &gt; 10 min (declared deviation); benchmark decision times unchanged</dd></div>
+      <div><dt>Decoding</dt><dd>Greedy, ≤ 4,096 new tokens; Muse's <code>to=self</code> channel dropped, Qwen thinking off</dd></div>
+      <div><dt>Time basis</dt><dd>Media time; latency recorded separately (Qwen ≈ 11 s, Muse ≈ 16 s per call)</dd></div>
+      <div><dt>Hardware / software</dt><dd>H200, BF16, batch 1 · transformers 5.18 · torch 2.14.1 · torchcodec 0.17</dd></div>
     </dl>
   </section>
 
   <section class="exp-section"><h2 id="pipeline">Pipeline</h2>
-    <ol class="pipeline"><li>Inventory + locks</li><li>Normalize annotations</li><li>Seeded selection</li><li>Acquire selected media</li><li>Decode validation</li><li>Causal replay</li><li>Export</li><li>Score</li></ol>
-    <p>Per call: current media time → standing task text → public dialogue so far → the frame window with timestamps →
-      the previous memory → one call-specific instruction. The model returns one JSON object
-      <code>{"decision": answer|speak|silent, "text": …, "memory": {…}}</code>. A valid reply commits the memory; an invalid
-      one keeps the previous memory and is logged. Every call is checkpointed, so runs resume without duplicating or
-      skipping decision points. Per benchmark: Ego-MC releases each instruction at its timestamp and monitors for
-      Feedback/Success; Wearable EgoProactive scores one decision per chunk end; StreamingBench answers at the question
-      time; OVO dispatches probes in time order; ProactiveVideoQA polls and decides when to speak.</p>
+    <ol class="steps"><li>Inventory + locks</li><li>Normalize annotations</li><li>Seeded selection</li><li>Acquire selected media</li><li>Decode validation</li><li>Causal replay</li><li>Export</li><li>Score</li></ol>
+    <ul class="points">
+      <li><b>Each call sends</b> the media time, the standing task, the public dialogue so far, the frame window with timestamps, the previous memory and one call-specific instruction.</li>
+      <li><b>The model returns</b> one JSON object: <code>decision</code> (answer / speak / silent), <code>text</code>, <code>memory</code>. Valid → memory committed; invalid → previous memory kept, call logged as failed.</li>
+      <li><b>Isolation.</b> Memory resets per item and model; Ego-MC resets at every instruction; OVO probes at one timestamp branch from a frozen state. Gold labels live in a private object the prompt builder cannot read.</li>
+      <li><b>Checkpointing.</b> State saved after every call; runs resume without duplicating or skipping decision points; items are sharded across GPUs by estimated call count.</li>
+    </ul>
   </section>
 
   <section class="exp-section"><h2 id="prompts">Prompts</h2>
-    <div class="prompt system">
-      <div class="prompt-head">System prompt <span class="prompt-note">v2, identical for both models</span></div>
-      <pre class="prompt-body">You are an online video assistant watching a live stream. You only ever see the most recent frames of the stream (each labeled with its absolute time in seconds) plus a short written memory that you yourself produced on the previous call. Nothing else about earlier footage survives, so your memory must carry everything you will need later.
+    <button class="btn" type="button" id="prompts-toggle" aria-expanded="false" aria-controls="prompts-body"><span class="chev">▶</span> Show the prompts</button>
+    <div id="prompts-body" hidden>
+      <div class="prompt system"><div class="prompt-head">System prompt <span class="prompt-note">v2, identical for both models</span></div>
+        <pre class="prompt-body">You are an online video assistant watching a live stream. You only ever see the most recent frames of the stream (each labeled with its absolute time in seconds) plus a short written memory that you yourself produced on the previous call. Nothing else about earlier footage survives, so your memory must carry everything you will need later.
 
 Rules:
 - Describe only what the frames support. Do not invent events, speech, or future actions.
@@ -81,11 +125,9 @@ Rules:
 - Keep the memory compact and factual. Hard limits: observed_facts at most 8 entries, completed_steps at most 6, pending_commitments at most 3, uncertainties at most 3; every entry at most 15 words and prefixed with its time (e.g. &quot;12s: ...&quot;); current_state at most 40 words. Merge or drop older entries instead of exceeding these limits. The memory is for YOUR later use, not an answer.
 - Reply with ONE JSON object and nothing else, in exactly this shape:
 {&quot;decision&quot;: &quot;answer&quot; | &quot;speak&quot; | &quot;silent&quot;, &quot;text&quot;: &quot;&lt;your answer or utterance, or empty string&gt;&quot;, &quot;memory&quot;: {&quot;observed_facts&quot;: [...], &quot;completed_steps&quot;: [...], &quot;current_state&quot;: &quot;...&quot;, &quot;pending_commitments&quot;: [...], &quot;uncertainties&quot;: [...]}}
-- decision must be &quot;answer&quot; when a question is asked of you now, &quot;speak&quot; when you choose to say something proactively, and &quot;silent&quot; otherwise (then text is &quot;&quot;).</pre>
-    </div>
-    <div class="prompt user">
-      <div class="prompt-head">User message <span class="prompt-note">structure, rebuilt every call</span></div>
-      <pre class="prompt-body">Current stream time: 128.0s.
+- decision must be &quot;answer&quot; when a question is asked of you now, &quot;speak&quot; when you choose to say something proactively, and &quot;silent&quot; otherwise (then text is &quot;&quot;).</pre></div>
+      <div class="prompt user"><div class="prompt-head">User message <span class="prompt-note">structure, rebuilt every call</span></div>
+        <pre class="prompt-body">Current stream time: 128.0s.
 
 Standing task / request:
 - Current recipe step (instruction 4): Slice the tomatoes.
@@ -103,13 +145,10 @@ Your previous memory:
 Released now:                       ← only at a decision point
 {"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."]}
 
-Instruction for this call: &lt;one of the instructions below&gt;
-Return only the JSON object.</pre>
-    </div>
-    <div class="prompt variant">
-      <div class="prompt-head">Per-call instructions <span class="prompt-note">one is chosen by call kind</span></div>
-      <details><summary>Show all eight</summary>
-      <pre class="prompt-body">refresh:  No response is required at this moment: set decision to "silent" and text to "" and update your memory.
+Instruction for this call: &lt;one of the eight below&gt;
+Return only the JSON object.</pre></div>
+      <div class="prompt variant"><div class="prompt-head">Per-call instructions <span class="prompt-note">one is chosen by call kind</span></div>
+        <pre class="prompt-body">refresh:  No response is required at this moment: set decision to "silent" and text to "" and update your memory.
 
 answer_mcq:  A multiple-choice question has just been released (see "Released now"). Answer it now: set decision to "answer" and put ONLY the letter of your chosen option (A, B, C or D) in text.
 
@@ -123,52 +162,250 @@ monitor (Ego-MC):  You are guiding the user through the CURRENT recipe step (the
 
 proactive poll (StreamingBench):  The standing request asks you to output a specific phrase as soon as a condition becomes true. If the condition is true in the latest frames, set decision to "speak" and put exactly the requested output in text; otherwise set decision to "silent".
 
-proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the user's standing question as the video unfolds. If the latest frames show something new that answers or advances the question, set decision to "speak" with a concise reply; otherwise "silent". Never repeat an earlier reply.</pre>
-      </details>
-    </div>
-    <div class="prompt response">
-      <div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s, raw channels</span></div>
-      <pre class="prompt-body"> to=self&lt;|message|&gt;Current stream time 22.0s. Instruction: slice four half-inch baguette pieces. Frames show four slices cut … Set decision speak, Success.&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;{"decision": "speak", "text": "Success: Four half-inch baguette slices are cut and ready.", "memory": {"observed_facts": ["0s: baguette in paper bag on left counter", "12s: knife cutting first slice", "22s: four slices on board"], "completed_steps": ["22s: four half-inch baguette slices cut"], "current_state": "Four slices ready on the board", "pending_commitments": [], "uncertainties": []}}&lt;|eot|&gt;</pre>
+proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the user's standing question as the video unfolds. If the latest frames show something new that answers or advances the question, set decision to "speak" with a concise reply; otherwise "silent". Never repeat an earlier reply.</pre></div>
+      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s, raw channels</span></div>
+        <pre class="prompt-body"> to=self&lt;|message|&gt;Current stream time 22.0s. Instruction: slice four half-inch baguette pieces. Frames show four slices cut … Set decision speak, Success.&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;{"decision": "speak", "text": "Success: Four half-inch baguette slices are cut and ready.", "memory": {"observed_facts": ["0s: baguette in paper bag on left counter", "12s: knife cutting first slice", "22s: four slices on board"], "completed_steps": ["22s: four half-inch baguette slices cut"], "current_state": "Four slices ready on the board", "pending_commitments": [], "uncertainties": []}}&lt;|eot|&gt;</pre></div>
     </div>
   </section>
 
   <section class="exp-section"><h2 id="results">Quantitative Results</h2>
-    <p>None reported. Five items per benchmark only establish that acquisition, inference, export and the scorers run; the
-      per-item outcomes are shown in the clips below. Judge-based metrics (ProactiveVideoQA PAUC, Wearable ConvQA judge)
-      were not run.</p>
+    <p>None reported: five items per benchmark only prove the pipeline runs. Per-item outcomes are under each clip below; judge-based metrics (PAUC, ConvQA judge) were not run.</p>
   </section>
 
   <section class="exp-section"><h2 id="visualization">Visualization</h2>
-    <p>Each clip is the segment the models streamed (480p re-encode, audio removed). Burned-in text: white = the public
-      task or question, green = gold annotation, blue = Qwen3.8-27B, orange = Muse Glimmer 30B, each shown at the media
-      time it was released or produced.</p>
-    <h3>StreamingBench — real-time MCQ (last 24 s before the question; answers appear at the end)</h3>
-    <div class="media-grid">
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample8.mp4"></video><figcaption>StreamingBench sample_8 · Event Understanding · gold D, Qwen D, Muse D</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample424.mp4"></video><figcaption>StreamingBench sample_424 · Text-Rich Understanding · gold C, Qwen C, Muse C</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample484.mp4"></video><figcaption>StreamingBench sample_484 · Event Understanding · gold A, Qwen C, Muse C</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample139.mp4"></video><figcaption>StreamingBench sample_139 · Causal Reasoning · gold B, Qwen B, Muse B</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/streamingbench_sample306.mp4"></video><figcaption>StreamingBench sample_306 · Object Recognition · gold C, Qwen C, Muse C</figcaption></figure>
+    <p>One highlight clip per item (all 25), both models in the same clip: segments around gold events, decision points and model utterances, with the media time stamped top-left. 480p, no audio, 32 MB in total.</p>
+    <div class="legend"><span><i style="background:#ffffff"></i>task / question</span><span><i style="background:#51cf66"></i>gold</span><span><i style="background:#4dabf7"></i>Qwen3.8-27B</span><span><i style="background:#ffa94d"></i>Muse Glimmer 30B</span></div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="streamingbench" type="button">StreamingBench<span>5</span></button>
+      <button class="tab" data-tab="ego_mc" type="button">Ego-MC-Bench<span>5</span></button>
+      <button class="tab" data-tab="wearable_ai" type="button">Wearable AI<span>5</span></button>
+      <button class="tab" data-tab="ovo_bench" type="button">OVO-Bench<span>5</span></button>
+      <button class="tab" data-tab="proactivevideoqa" type="button">ProactiveVideoQA<span>5</span></button>
     </div>
-    <h3>Ego-MC-Bench — recipe guidance (green = gold annotation, blue = Qwen, orange = Muse)</h3>
-    <div class="media-grid">
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010033_0-60s.mp4"></video><figcaption>Ego-MC GX010033, 0–60 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010033_95-135s.mp4"></video><figcaption>Ego-MC GX010033, 95–135 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/egomc_GX010065_300-345s.mp4"></video><figcaption>Ego-MC GX010065, 300–345 s · green = gold, blue = Qwen, orange = Muse</figcaption></figure>
+    <div class="panel" id="panel-streamingbench">
+      <p class="panel-desc">Real-time MCQ: the question is released at a fixed media time; the clip shows the last 24 s before it.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0008_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0008_i0.mp4"></video>
+          <figcaption>
+            <div class="demo-title">sample_8 <span class="demo-sub">Event Understanding</span><span class="demo-len">28 s of highlights · 0.7 MB</span></div>
+            <div class="demo-what">Question at 256 s: “What is the outcome of Bernardo&#x27;s penalty kick?”</div>
+            <div class="demo-outcome">Gold D · Qwen D · Muse D</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0424_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0424_i0.mp4"></video>
+          <figcaption>
+            <div class="demo-title">sample_424 <span class="demo-sub">Text-Rich Understanding</span><span class="demo-len">28 s of highlights · 0.4 MB</span></div>
+            <div class="demo-what">Question at 490 s: “What text is displayed on the screen right now?”</div>
+            <div class="demo-outcome">Gold C · Qwen C · Muse C</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0484_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0484_i0.mp4"></video>
+          <figcaption>
+            <div class="demo-title">sample_484 <span class="demo-sub">Event Understanding</span><span class="demo-len">28 s of highlights · 0.5 MB</span></div>
+            <div class="demo-what">Question at 585 s: “What is the sequence of the racecars when the racecars sprints?”</div>
+            <div class="demo-outcome">Gold A · Qwen C · Muse C</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0139_i1.jpg" src="assets/clips/streamingbench/streamingbench_real_0139_i1.mp4"></video>
+          <figcaption>
+            <div class="demo-title">sample_139 <span class="demo-sub">Causal Reasoning</span><span class="demo-len">28 s of highlights · 0.3 MB</span></div>
+            <div class="demo-what">Question at 180 s: “Why did the hand reach towards the palette just now?”</div>
+            <div class="demo-outcome">Gold B · Qwen B · Muse B</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0306_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0306_i0.mp4"></video>
+          <figcaption>
+            <div class="demo-title">sample_306 <span class="demo-sub">Object Recognition</span><span class="demo-len">28 s of highlights · 0.8 MB</span></div>
+            <div class="demo-what">Question at 534 s: “What is the primary color of the subway train?”</div>
+            <div class="demo-outcome">Gold C · Qwen C · Muse C</div>
+          </figcaption>
+        </figure>
+      </div>
     </div>
-    <h3>Wearable AI — EgoProactive (gold vs model decision at each chunk end)</h3>
-    <div class="media-grid">
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_7210ea1e.mp4"></video><figcaption>Wearable AI EgoProactive 7210ea1e · “How do I create a DIY gift box from cardstock by folding and taping?” · 0–45 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_fddac0c9.mp4"></video><figcaption>Wearable AI EgoProactive fddac0c9 · “How do I make a pipe cleaner flower?” · 0–45 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/wearable_egoproactive_51858592.mp4"></video><figcaption>Wearable AI EgoProactive 51858592 · “How do I make a chocolate peanut butter protein shake?” · 0–45 s</figcaption></figure>
+    <div class="panel" id="panel-ego_mc" hidden>
+      <p class="panel-desc">Recipe guidance: each instruction is released at its timestamp; the model must give Feedback on mistakes and Success on completion.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010033.jpg" src="assets/clips/ego_mc/ego_mc_GX010033.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010033 <span class="demo-sub">11 steps, 7 min</span><span class="demo-len">99 s of highlights · 1.5 MB</span></div>
+            <div class="demo-what">Gold: 5 mistake feedbacks, 10 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 6 success · Muse 37 feedback / 2 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010054.jpg" src="assets/clips/ego_mc/ego_mc_GX010054.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010054 <span class="demo-sub">17 steps, 14 min</span><span class="demo-len">99 s of highlights · 1.4 MB</span></div>
+            <div class="demo-what">Gold: 11 mistake feedbacks, 17 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 2 success · Muse 15 feedback / 4 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010065.jpg" src="assets/clips/ego_mc/ego_mc_GX010065.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010065 <span class="demo-sub">9 steps, 8 min</span><span class="demo-len">98 s of highlights · 1.9 MB</span></div>
+            <div class="demo-what">Gold: 9 mistake feedbacks, 9 successes</div>
+            <div class="demo-outcome">Qwen 1 feedback / 6 success · Muse 50 feedback / 4 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010036.jpg" src="assets/clips/ego_mc/ego_mc_GX010036.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010036 <span class="demo-sub">16 steps, 18 min</span><span class="demo-len">100 s of highlights · 1.8 MB</span></div>
+            <div class="demo-what">Gold: 7 mistake feedbacks, 16 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 5 success · Muse 11 feedback / 7 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010053.jpg" src="assets/clips/ego_mc/ego_mc_GX010053.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010053 <span class="demo-sub">17 steps, 20 min</span><span class="demo-len">99 s of highlights · 1.8 MB</span></div>
+            <div class="demo-what">Gold: 11 mistake feedbacks, 17 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 8 success · Muse 12 feedback / 8 success</div>
+          </figcaption>
+        </figure>
+      </div>
     </div>
-    <h3>ProactiveVideoQA — proactive replies to the user question</h3>
-    <div class="media-grid">
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_WEB_m4sWjNlPlVs.mp4"></video><figcaption>ProactiveVideoQA WEB m4sWjNlPlVs · 0–35 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_WEB_1rtBD13QbXE.mp4"></video><figcaption>ProactiveVideoQA WEB 1rtBD13QbXE · 0–11 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_EGO_c2d06df7-5d3.mp4"></video><figcaption>ProactiveVideoQA EGO c2d06df7-5d3 · 0–60 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_EGO_f7866811-103.mp4"></video><figcaption>ProactiveVideoQA EGO f7866811-103 · 0–60 s</figcaption></figure>
-      <figure class="fig"><video controls preload="metadata" src="assets/clips/pvqa_VAD_Shoplifting0.mp4"></video><figcaption>ProactiveVideoQA VAD Shoplifting0 · 0–90 s</figcaption></figure>
+    <div class="panel" id="panel-wearable_ai" hidden>
+      <p class="panel-desc">EgoProactive: one interrupt/silent decision per chunk end · EgoConv: answer each user question · EgoLongQA: question revealed at the end.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">7210ea1e <span class="demo-sub">EgoProactive</span><span class="demo-len">88 s of highlights · 2.4 MB</span></div>
+            <div class="demo-what">“How do I create a DIY gift box from cardstock by folding and taping?” · 10 chunks, gold interrupts in 5</div>
+            <div class="demo-outcome">Qwen interrupted 10 · Muse interrupted 7</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">fddac0c9 <span class="demo-sub">EgoProactive</span><span class="demo-len">98 s of highlights · 2.8 MB</span></div>
+            <div class="demo-what">“How do I make a pipe cleaner flower?” · 18 chunks, gold interrupts in 11</div>
+            <div class="demo-outcome">Qwen interrupted 18 · Muse interrupted 10</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">871fb784 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 1.1 MB</span></div>
+            <div class="demo-what">10-min clip streamed, question revealed at the end: “Which area of the canvas retained visible numbers the longest before I painted over it, and what color did I use to cover it?”</div>
+            <div class="demo-outcome">Gold C · Qwen B · Muse C</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">459ebb35 <span class="demo-sub">EgoConv</span><span class="demo-len">99 s of highlights · 3.8 MB</span></div>
+            <div class="demo-what">11 questions during a DailyActivities conversation; only the listed intervals are visible</div>
+            <div class="demo-outcome">Free-form answers vs reference (BLEU-4: Qwen 0.065, Muse 0.040)</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">51858592 <span class="demo-sub">EgoProactive</span><span class="demo-len">98 s of highlights · 4.0 MB</span></div>
+            <div class="demo-what">“How do I make a chocolate peanut butter protein shake?” · 20 chunks, gold interrupts in 10</div>
+            <div class="demo-outcome">Qwen interrupted 10 · Muse interrupted 14</div>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="panel" id="panel-ovo_bench" hidden>
+      <p class="panel-desc">Probes at annotated times: MCQ, “enough evidence?” (CRR), current step (SSR), repetition count (REC).</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1262.jpg" src="assets/clips/ovo_bench/ovo_bench_1262.mp4"></video>
+          <figcaption>
+            <div class="demo-title">id 1262 · AutoEvalMetaData <span class="demo-sub">ACR</span><span class="demo-len">13 s of highlights · 0.3 MB</span></div>
+            <div class="demo-what">1 probe(s) at 65 s</div>
+            <div class="demo-outcome">Gold D · Qwen C · Muse C</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_0634.jpg" src="assets/clips/ovo_bench/ovo_bench_0634.mp4"></video>
+          <figcaption>
+            <div class="demo-title">id 634 · YouTube_Games <span class="demo-sub">STU</span><span class="demo-len">13 s of highlights · 0.2 MB</span></div>
+            <div class="demo-what">1 probe(s) at 472 s</div>
+            <div class="demo-outcome">Gold B · Qwen B · Muse &quot;?&quot; (its literal answer)</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1499.jpg" src="assets/clips/ovo_bench/ovo_bench_1499.mp4"></video>
+          <figcaption>
+            <div class="demo-title">id 1499 · MovieNet <span class="demo-sub">CRR</span><span class="demo-len">51 s of highlights · 0.5 MB</span></div>
+            <div class="demo-what">5 probe(s) at 397 s, 412 s, 430 s, 438 s, 458 s</div>
+            <div class="demo-outcome">Gold No/No/Yes/Yes/Yes · Qwen No/No/Yes/Yes/Yes · Muse No/No/Yes/Yes/Yes</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_0390.jpg" src="assets/clips/ovo_bench/ovo_bench_0390.mp4"></video>
+          <figcaption>
+            <div class="demo-title">id 390 · Ego4D <span class="demo-sub">HLD</span><span class="demo-len">13 s of highlights · 0.5 MB</span></div>
+            <div class="demo-what">1 probe(s) at 302 s</div>
+            <div class="demo-outcome">Gold B · Qwen B · Muse B</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1198.jpg" src="assets/clips/ovo_bench/ovo_bench_1198.mp4"></video>
+          <figcaption>
+            <div class="demo-title">id 1198 · Ego4D <span class="demo-sub">FPD</span><span class="demo-len">13 s of highlights · 0.6 MB</span></div>
+            <div class="demo-what">1 probe(s) at 252 s</div>
+            <div class="demo-outcome">Gold D · Qwen B · Muse B</div>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="panel" id="panel-proactivevideoqa" hidden>
+      <p class="panel-desc">Standing user question; the model decides when to speak. Green = reference reply times.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">m4sWjNlPlVs <span class="demo-sub">WEB</span><span class="demo-len">35 s of highlights · 0.6 MB</span></div>
+            <div class="demo-what">“What is the person doing with the piece of paper?” · 3 reference replies, 0.6 min</div>
+            <div class="demo-outcome">Qwen spoke 15× · Muse spoke 8×</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">1rtBD13QbXE <span class="demo-sub">WEB</span><span class="demo-len">11 s of highlights · 0.1 MB</span></div>
+            <div class="demo-what">“What is being shown or described in the video?” · 2 reference replies, 0.2 min</div>
+            <div class="demo-outcome">Qwen spoke 3× · Muse spoke 1×</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">c2d06df7-5d3a- <span class="demo-sub">EGO</span><span class="demo-len">100 s of highlights · 2.3 MB</span></div>
+            <div class="demo-what">“What are the different ways in which the dough is kneaded during the preparation process?” · 3 reference replies, 6.0 min</div>
+            <div class="demo-outcome">Qwen spoke 18× · Muse spoke 25×</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">f7866811-1030- <span class="demo-sub">EGO</span><span class="demo-len">95 s of highlights · 1.6 MB</span></div>
+            <div class="demo-what">“How is the dough shaped during the preparation process?” · 1 reference replies, 6.0 min</div>
+            <div class="demo-outcome">Qwen spoke 54× · Muse spoke 51×</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">Shoplifting001 <span class="demo-sub">VAD</span><span class="demo-len">26 s of highlights · 0.3 MB</span></div>
+            <div class="demo-what">“What suspicious or harmful activities, including unlawful, criminal behaviors or destructive accidents, are ha” · 1 reference replies, 2.4 min</div>
+            <div class="demo-outcome">Qwen spoke 1× · Muse spoke 2×</div>
+          </figcaption>
+        </figure>
+      </div>
     </div>
   </section>
 
@@ -181,13 +418,29 @@ proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the 
 (function () {
   var toc = document.querySelector("[data-toc]");
   var heads = document.querySelectorAll(".exp-section > h2[id]");
-  if (!toc || heads.length < 2) { return; }
-  var ol = document.createElement("ol");
-  Array.prototype.forEach.call(heads, function (h) {
-    var li = document.createElement("li"), a = document.createElement("a");
-    a.href = "#" + h.id; a.textContent = h.textContent; li.appendChild(a); ol.appendChild(li);
+  if (toc && heads.length > 1) {
+    var ol = document.createElement("ol");
+    Array.prototype.forEach.call(heads, function (h) {
+      var li = document.createElement("li"), a = document.createElement("a");
+      a.href = "#" + h.id; a.textContent = h.textContent; li.appendChild(a); ol.appendChild(li);
+    });
+    toc.appendChild(ol);
+  }
+  var btn = document.getElementById("prompts-toggle"), body = document.getElementById("prompts-body");
+  btn.addEventListener("click", function () {
+    var open = body.hidden; body.hidden = !open; btn.setAttribute("aria-expanded", String(open));
+    btn.lastChild.textContent = open ? " Hide the prompts" : " Show the prompts";
   });
-  toc.appendChild(ol);
+  var tabs = document.querySelectorAll(".tab");
+  Array.prototype.forEach.call(tabs, function (t) {
+    t.addEventListener("click", function () {
+      Array.prototype.forEach.call(tabs, function (x) { x.classList.toggle("active", x === t); });
+      Array.prototype.forEach.call(document.querySelectorAll(".panel"), function (p) {
+        var on = p.id === "panel-" + t.dataset.tab; p.hidden = !on;
+        if (!on) Array.prototype.forEach.call(p.querySelectorAll("video"), function (v) { v.pause(); });
+      });
+    });
+  });
 })();
 </script>
 </body>
