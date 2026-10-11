@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Streaming VLM Smoke Test — Interactive Model Experiments</title>
+<title>Sliding-Window Streaming VLMs: Full Evaluation — Interactive Model Experiments</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -56,6 +56,15 @@
   .demo-what { font-size: 13px; color: var(--muted); }
   .demo-outcome { font-size: 13px; color: var(--text); font-family: "JetBrains Mono", ui-monospace, monospace; }
   @media (max-width: 640px) { .demo-grid { grid-template-columns: 1fr; } }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 8px; }
+  .tbl th, .tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .tbl th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .tbl td.n, .tbl th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+  .tbl b { font-weight: 600; }
+  .tbl .st { font-size: 11.5px; color: var(--muted); }
+  .tblwrap { overflow-x: auto; margin: 0 0 20px; }
+  .note { font-size: 13.5px; color: var(--muted); max-width: 78ch; }
+  .lat-fig { display: block; width: 100%; min-width: 560px; height: auto; }
 </style>
 </head>
 <body>
@@ -65,48 +74,47 @@
     <div class="exp-title-row">
       <span class="card-icon c2">SW</span>
       <div>
-        <h1>Sliding-Window Streaming VLM Smoke Test</h1>
+        <h1>Sliding-Window Streaming VLMs: Full Evaluation on Ego-MC-Bench and Wearable AI</h1>
         <div class="exp-meta">
-          <time datetime="2026-10-05">Oct 5, 2026</time>
+          <time datetime="2026-10-08">Oct 8, 2026</time>
           <span class="status completed">completed</span>
-          <span class="tag">video</span><span class="tag">streaming</span><span class="tag">interaction</span><span class="tag">recurrent memory</span>
+          <span class="tag">video</span><span class="tag">streaming</span><span class="tag">interaction</span><span class="tag">recurrent memory</span><span class="tag">latency</span>
         </div>
       </div>
     </div>
-    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B run as causal online assistants: an 8-frame sliding window plus a
-      memory they write themselves, replayed in media time on 5 random items from each of 5 streaming benchmarks. A
-      pipeline smoke test with 50 trajectories, not a benchmark result.</p>
+    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B run as causal online assistants (an 8-frame sliding window plus a memory they write themselves, replayed in media time) on every eligible item of Ego-MC-Bench (39 videos) and the Wearable AI validation split (2,056 sessions): about 140k model calls per model, scored with the official or adapted evaluators, plus an isolated single-stream latency study.</p>
   </header>
 
   <nav class="exp-toc" data-toc aria-label="Sections"></nav>
 
   <section class="exp-section"><h2 id="overview">Overview</h2>
     <ul class="points">
-      <li><b>Question.</b> Can an offline VLM act as an online assistant when it only sees the 8 most recent frames and a short self-written memory?</li>
-      <li><b>Scope.</b> 2 models × 5 benchmarks × 5 sampled items = 50 trajectories, 5,578 model calls, ~3.2 h on 8 × H200.</li>
-      <li><b>Outcome.</b> Every trajectory completed; 8 outputs were malformed JSON; all predictions exported in each benchmark's format.</li>
-      <li><b>Takeaway.</b> Window-local questions are answered well; timing proactive help is not: Qwen stays quiet, Muse repeats itself.</li>
+      <li><b>Question.</b> How well does an offline VLM work as an online assistant when it only sees the 8 most recent frames and a short self-written memory, and what does each call cost in latency?</li>
+      <li><b>Scope.</b> 2 models × all eligible items of 2 benchmarks: 39 Ego-MC videos and 2,056 Wearable AI sessions (EgoLongQA 700, EgoConv 656, EgoProactive 700). 140,724 scheduled calls per model.</li>
+      <li><b>Outcome.</b> Every item ran to the end for both models; over 99.9 % of outputs on Wearable AI were valid JSON (98.6 % for Muse on Ego-MC).</li>
+      <li><b>Takeaway.</b> Neither model handles timing well. On Ego-MC, Qwen almost never flags a mistake and Muse flags many but with low precision. On EgoProactive, Qwen interrupts too often and Muse is more balanced. Qwen answers long-video questions from its memory far better (64 % vs 31 %), largely because Muse often declines to answer. Muse is 1.9× slower per call because it reasons before answering.</li>
     </ul>
   </section>
 
   <section class="exp-section"><h2 id="setup">Setup</h2>
     <h3>Models and data</h3>
     <ul class="points">
-      <li><b>Models.</b> Qwen3.8-27B (non-thinking) and Muse Glimmer 30B (<code>reasoning_strength = low</code>, only the <code>to=user</code> channel is parsed). BF16, pinned revisions, batch size 1.</li>
-      <li><b>Benchmarks.</b> Ego-MC-Bench, Wearable AI, StreamingBench, OVO-Bench, ProactiveVideoQA. Five items each, sampled uniformly with seed 42 after structural validation; both models see the same items and media.</li>
+      <li><b>Models.</b> Qwen3.8-27B (non-thinking mode, greedy decoding) and Muse Glimmer 30B (<code>reasoning_strength = low</code>, the model's official sampling: temperature 1.0, top-p 0.95, top-k 64, seeded per call; only the <code>to=user</code> channel is parsed). BF16, pinned revisions.</li>
+      <li><b>Ego-MC-Bench.</b> 40 annotated cooking videos; 39 eligible (1 has no leading instruction). Adapted per-recipe-step protocol: each instruction is released at its time and resets window and memory.</li>
+      <li><b>Wearable AI (validation split).</b> 2,100 sessions; 2,056 eligible after structural checks (22 with a non-causal timeline, 21 whose dialogue turns do not match the questions, 1 with bad intervals). One EgoConv clip is shorter than its last annotated turn; it is kept.</li>
     </ul>
     <h3>Streaming wrapper</h3>
     <ul class="points">
       <li><b>Window.</b> The video is replayed in media time at one frame per second. Each call sees only the 8 most recent frames (long edge ≤ 672 px): never a future frame, never an unobserved interval.</li>
-      <li><b>Memory.</b> A small JSON object (facts, completed steps, state, commitments, uncertainties) that the model rewrites on every call and that is bounded to 512 tokens. It is the only thing that survives beyond the window.</li>
-      <li><b>Text input.</b> The standing task or question, user turns and subtitles released so far, and the model's own earlier replies.</li>
-      <li><b>Cadence.</b> Memory refresh every 2 s; 10 s for the 9 items longer than 10 minutes (declared deviation). Benchmark decision times are unchanged.</li>
+      <li><b>Memory.</b> A small JSON object (facts, completed steps, state, commitments, uncertainties) that the model rewrites on every call, bounded to 512 tokens. It is the only state that survives beyond the window.</li>
+      <li><b>Text input.</b> The standing task or question, user turns released so far, and the model's own earlier replies.</li>
+      <li><b>Cadence.</b> Memory refresh every 2 s; 10 s for media longer than 10 minutes (declared deviation). Benchmark decision times are unchanged.</li>
     </ul>
-    <h3>Output and isolation</h3>
+    <h3>Serving and compute</h3>
     <ul class="points">
-      <li><b>Output.</b> Greedy decoding, ≤ 4,096 tokens. One JSON reply per call: <code>decision</code> (answer / speak / silent), <code>text</code>, <code>memory</code>. An invalid reply keeps the old memory and counts as a failed call (8 of 5,578).</li>
-      <li><b>Isolation.</b> Memory resets per item, per model and at every Ego-MC instruction; OVO probes at the same timestamp branch from one frozen state. Gold labels are readable by the scorer only. Latency (≈ 11 s Qwen, ≈ 16 s Muse per call) is not charged to the stream.</li>
-      <li><b>Compute.</b> 8 × H200, items sharded by estimated call count, ~3.2 h; transformers 5.18, torch 2.14.1, torchcodec 0.17.</li>
+      <li><b>Backend.</b> vLLM (the official Muse Glimmer image for both models), one server per GPU, 92 % of GPU memory for weights and KV cache. Calls inside one item stay sequential (each depends on the previous memory); throughput comes from running 40–64 items at once per GPU.</li>
+      <li><b>Hardware.</b> UW Hyak Klone, mostly preemptible H200 (141 GB) plus A100 80 GB. Items are pulled from a shared queue, so preempted jobs lose no work. Wearable AI took 4.0 h (Qwen) and 7.0 h (Muse) of wall time.</li>
+      <li><b>Differences from the earlier smoke test.</b> All items instead of 5 per benchmark, only these two benchmarks, vLLM instead of transformers, and Muse sampled as its documentation requires instead of greedy. Prompts are unchanged (v2).</li>
     </ul>
   </section>
 
@@ -118,9 +126,9 @@
   <path d="M122,63 H133" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
   <rect x="134" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="150" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="150" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">2</text><text x="164" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Normalize</text><text x="144" y="80" fill="#8a949e" font-size="10.5">items · quarantine</text>
   <path d="M248,63 H259" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
-  <rect x="260" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="276" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="276" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">3</text><text x="290" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Select</text><text x="270" y="80" fill="#8a949e" font-size="10.5">seed 42 · 5 each</text>
+  <rect x="260" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="276" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="276" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">3</text><text x="290" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Select</text><text x="270" y="80" fill="#8a949e" font-size="10.5">all eligible items</text>
   <path d="M374,63 H385" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
-  <rect x="386" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="402" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="402" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">4</text><text x="416" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Acquire</text><text x="396" y="80" fill="#8a949e" font-size="10.5">selected media</text>
+  <rect x="386" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="402" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="402" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">4</text><text x="416" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Acquire</text><text x="396" y="80" fill="#8a949e" font-size="10.5">full media sets</text>
   <path d="M500,63 H511" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
   <rect x="512" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="528" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="528" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">5</text><text x="542" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Validate</text><text x="522" y="80" fill="#8a949e" font-size="10.5">decode all files</text>
   <path d="M626,63 H637" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
@@ -129,7 +137,7 @@
   <rect x="764" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="780" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="780" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">7</text><text x="794" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Export</text><text x="774" y="80" fill="#8a949e" font-size="10.5">benchmark format</text>
   <path d="M878,63 H889" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar)"/>
   <rect x="890" y="34" width="114" height="58" rx="8" fill="#1a2129" stroke="#2d3640"/><circle cx="906" cy="52" r="9" fill="rgba(77,171,247,.18)"/><text x="906" y="56" text-anchor="middle" fill="#4dabf7" font-size="10" font-weight="700">8</text><text x="920" y="56" fill="#e6e9ed" font-size="12.5" font-weight="600">Score</text><text x="900" y="80" fill="#8a949e" font-size="10.5">official / adapted</text>
-  <text x="10" y="128" fill="#8a949e" font-size="11">Steps 1–5 run once on the login node and freeze manifests and locks; 6 runs on GPUs (one model per process, items sharded by estimated calls); 7–8 run afterwards.</text>
+  <text x="10" y="128" fill="#8a949e" font-size="11">Steps 1–5 run once as CPU jobs and freeze manifests and locks; 6 runs on vLLM servers (one per GPU) fed by many concurrent item streams; 7–8 run afterwards.</text>
 </svg></figure>
     <p class="lead">One replay step at media time <i>t</i>: the model gets only what is public by <i>t</i> plus its own memory, and answers with one JSON object.</p>
     <figure class="figwrap"><svg class="pipe-fig" viewBox="0 0 1010 340" role="img" aria-label="One replay step: window and memory go into the model, which returns a decision, text and a new memory">
@@ -161,7 +169,7 @@
   <text x="502" y="130" text-anchor="middle" fill="#e6e9ed" font-size="13" font-weight="600">VLM, one request</text>
   <text x="502" y="152" text-anchor="middle" fill="#b197fc" font-size="11">Qwen3.8-27B (thinking off)</text>
   <text x="502" y="170" text-anchor="middle" fill="#b197fc" font-size="11">Muse Glimmer 30B (reasoning low)</text>
-  <text x="502" y="190" text-anchor="middle" fill="#8a949e" font-size="10">greedy · ≤ 4,096 tokens</text><text x="502" y="203" text-anchor="middle" fill="#8a949e" font-size="10">~11 s (Qwen) / ~16 s (Muse) per call</text>
+  <text x="502" y="190" text-anchor="middle" fill="#8a949e" font-size="10">≤ 4,096 output tokens</text><text x="502" y="203" text-anchor="middle" fill="#8a949e" font-size="10">3.5 s (Qwen) / 6.8 s (Muse) per call</text>
   <path d="M608,156 H630" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar2)"/>
   <!-- output -->
   <rect x="632" y="96" width="210" height="120" rx="8" fill="#1a2129" stroke="#2d3640"/>
@@ -189,7 +197,7 @@
       <li><b>Causal by construction.</b> Frames are fetched by presentation time (never after <i>t</i>, never from unobserved intervals); questions, steps and probes are released only at their annotated times.</li>
       <li><b>Memory is the only long-term state.</b> It is rewritten by the model every call and bounded deterministically; it resets per item and per model, and at every Ego-MC instruction.</li>
       <li><b>Gold stays private.</b> Answer keys, reference replies and their timestamps are read by the exporter and scorer only.</li>
-      <li><b>Resumable.</b> State is checkpointed after every call, so interrupted runs continue without duplicating or skipping decision points.</li>
+      <li><b>Resumable.</b> State is checkpointed after every call; preempted GPU jobs are requeued and any worker resumes an abandoned item from its last completed call.</li>
     </ul>
   </section>
 
@@ -225,129 +233,125 @@ Your previous memory:
 Released now:                       ← only at a decision point
 {"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."]}
 
-Instruction for this call: &lt;one of the eight below&gt;
+Instruction for this call: &lt;one of the instructions below&gt;
 Return only the JSON object.</pre></div>
-      <div class="prompt variant"><div class="prompt-head">Per-call instructions <span class="prompt-note">one is chosen by call kind</span></div>
+      <div class="prompt variant"><div class="prompt-head">Per-call instructions <span class="prompt-note">one is chosen by call kind (the ones used by these two benchmarks)</span></div>
         <pre class="prompt-body">refresh:  No response is required at this moment: set decision to "silent" and text to "" and update your memory.
 
 answer_mcq:  A multiple-choice question has just been released (see "Released now"). Answer it now: set decision to "answer" and put ONLY the letter of your chosen option (A, B, C or D) in text.
 
 answer_free (Wearable EgoConv):  The user has just asked you the question shown under "Released now". Answer it now in one to three sentences based on what you have seen: set decision to "answer".
 
-probe_crr (OVO):  Decide whether the visual content you have seen so far, especially the latest frames, provides enough information to answer the standing question. Set decision to "answer" and text to exactly "Yes" or "No".
-
 interval_end (Wearable EgoProactive):  A video chunk has just ended. Decide whether to interrupt the user now with the next useful step-by-step guidance or correction for their standing request: set decision to "speak" with the utterance, or "silent" if nothing should be said yet. Do not repeat guidance you already gave.
 
 monitor (Ego-MC):  You are guiding the user through the CURRENT recipe step (the standing instruction). If the latest frames show the user making a mistake relative to that step, set decision to "speak" and text to "Feedback: &lt;short correction&gt;". If the step now appears completed, set decision to "speak" and text to "Success: &lt;short confirmation&gt;". Otherwise set decision to "silent". Do not repeat feedback you already gave.
 
-proactive poll (StreamingBench):  The standing request asks you to output a specific phrase as soon as a condition becomes true. If the condition is true in the latest frames, set decision to "speak" and put exactly the requested output in text; otherwise set decision to "silent".
+reply (Ego-MC user question):  The user has just asked you a question (see "Released now"). Set decision to "answer" and text to "Reply: &lt;your answer&gt;".</pre></div>
+      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s, raw channels (full run)</span></div>
+        <pre class="prompt-body"> to=self&lt;|message|&gt;Current recipe step: First, get a baguette and slice four half-inch thick pieces from it.
 
-proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the user's standing question as the video unfolds. If the latest frames show something new that answers or advances the question, set decision to "speak" with a concise reply; otherwise "silent". Never repeat an earlier reply.</pre></div>
-      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, Ego-MC GX010033, t = 22 s, raw channels</span></div>
-        <pre class="prompt-body"> to=self&lt;|message|&gt;Current stream time 22.0s. Instruction: slice four half-inch baguette pieces. Frames show four slices cut … Set decision speak, Success.&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;{"decision": "speak", "text": "Success: Four half-inch baguette slices are cut and ready.", "memory": {"observed_facts": ["0s: baguette in paper bag on left counter", "12s: knife cutting first slice", "22s: four slices on board"], "completed_steps": ["22s: four half-inch baguette slices cut"], "current_state": "Four slices ready on the board", "pending_commitments": [], "uncertainties": []}}&lt;|eot|&gt;</pre></div>
+Frames 15-22 show slicing. At 20s three slices visible, knife between third and fourth. At 22s four slices? Lo <i>[… rest of the to=self reasoning trimmed for display …]</i>&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;{"decision": "speak", "text": "Success: Four half-inch baguette slices are now cut.", "memory": {"observed_facts": ["11.0s: Hand picks up knife from plate", "12.0s: Knife positioned on baguette, slicing appears to start", "17.0s: Second cut line visible on baguette end", "18.0s: Knife cutting second slice from baguette", "20.0s: Three baguette slices visible on cutting board", "22.0s: Four baguette slices visible on cutting board", "22.0s: Knife positioned near fourth slice"], "completed_steps": ["Slice four half-inch thick baguette pieces"], "current_state": "Four half-inch baguette pieces are sliced on board, step appears complete", "pending_commitments": [], "uncertainties": []}}&lt;|eot|&gt;</pre></div>
+      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Qwen3.8-27B, same call, raw output (full run)</span></div>
+        <pre class="prompt-body">{"decision": "silent", "text": "", "memory": {"observed_facts": ["0.0s: Baguette in paper bag on counter left of cutting board", "0.0s: White cutting board, knives on plate, toaster, tomato, basil, cheese visible", "11.0s: User picks up knife from plate", "12.0s: User cutting baguette on board with knife", "18.0s: User continues slicing baguette, multiple cuts visible", "20.0s: User slicing baguette, several pieces cut on board", "22.0s: User still slicing baguette, knife in hand, pieces on board"], "completed_steps": [], "current_state": "User is slicing the baguette on the cutting board; several cuts made, continuing toward four pieces.", "pending_commitments": ["Slice four half-inch pieces from baguette"], "uncertainties": []}}&lt;|im_end|&gt;</pre></div>
     </div>
   </section>
 
   <section class="exp-section"><h2 id="results">Quantitative Results</h2>
-    <p>None reported: five items per benchmark only prove the pipeline runs. Per-item outcomes are under each clip below; judge-based metrics (PAUC, ConvQA judge) were not run.</p>
+    <h3>Ego-MC-Bench · 39 videos · adapted QICD evaluator</h3>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Metric</th><th class="n">Qwen3.8-27B</th><th class="n">Muse Glimmer 30B</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Instruction-completion accuracy (IC-Acc), n = 261 segments</td><td class="n"><b>0.295</b></td><td class="n">0.203</td><td class="st">adapted</td></tr>
+        <tr><td>Mistake feedback precision</td><td class="n">0.154 (2 / 13)</td><td class="n">0.160 (142 / 886)</td><td class="st">adapted</td></tr>
+        <tr><td>Mistake feedback recall, n = 392 gold mistakes</td><td class="n">0.005</td><td class="n"><b>0.362</b></td><td class="st">adapted</td></tr>
+        <tr><td>Mistake feedback F1</td><td class="n">0.010</td><td class="n"><b>0.222</b></td><td class="st">adapted</td></tr>
+        <tr><td>Feedback ROUGE-L / BERTScore F1 on matched pairs</td><td class="n">0.233 / 0.904 (2 pairs)</td><td class="n">0.223 / 0.889 (379 pairs)</td><td class="st">adapted</td></tr>
+        <tr><td>Valid JSON outputs</td><td class="n">99.98 % of 5,975</td><td class="n">98.57 % of 5,957</td><td class="st">run</td></tr>
+      </tbody></table></div>
+    <p class="note">Detection window |Δt| &lt; 15 s as in the upstream evaluator. Fewer calls than the 6,673 scheduled run, because monitoring of a step stops after its first "Success".</p>
+    <h3>Wearable AI · validation split · bundled starter-kit evaluator</h3>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Task · metric</th><th class="n">Qwen3.8-27B</th><th class="n">Muse Glimmer 30B</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>EgoLongQA · MCQ accuracy, n = 700</td><td class="n"><b>0.644</b> (451)</td><td class="n">0.307 (215)</td><td class="st">official</td></tr>
+        <tr><td>EgoLongQA · questions answered with a letter</td><td class="n">700 / 700</td><td class="n">413 / 700</td><td class="st">run</td></tr>
+        <tr><td>EgoLongQA · accuracy on answered questions</td><td class="n">0.644</td><td class="n">0.521</td><td class="st">derived</td></tr>
+        <tr><td>EgoConv · BLEU-4, n = 4,176 turns</td><td class="n"><b>0.088</b></td><td class="n">0.051</td><td class="st">official, BLEU only</td></tr>
+        <tr><td>EgoConv · LLM-judge score</td><td class="n">–</td><td class="n">–</td><td class="st">blocked (no judge)</td></tr>
+        <tr><td>EgoProactive · macro F1 / geometric-mean F1, n = 9,935 chunks</td><td class="n">0.508 / 0.485</td><td class="n"><b>0.537 / 0.536</b></td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · interrupt precision / recall</td><td class="n">0.561 / 0.799</td><td class="n">0.573 / 0.569</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · silent precision / recall</td><td class="n">0.533 / 0.268</td><td class="n">0.501 / 0.504</td><td class="st">official</td></tr>
+        <tr><td>Valid JSON outputs</td><td class="n">99.995 % of 134,051</td><td class="n">99.91 % of 134,051</td><td class="st">run</td></tr>
+      </tbody></table></div>
+    <p class="note">Muse leaves 287 EgoLongQA questions without a letter (188 silent, 77 empty answers, 21 "no evidence"-style replies, 1 unparsable output); the official scorer counts them as wrong. Judge-based metrics were not run because no judge model was configured.</p>
+  </section>
+
+  <section class="exp-section"><h2 id="latency">Latency</h2>
+    <p class="lead">Isolated study: one vLLM server on one H200, one stream at a time (no batching or queueing), the same 20 items for both models (5 per subtask, first 30 calls each). The server's first, cold call is excluded.</p>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Per call</th><th class="n">Qwen3.8-27B</th><th class="n">Muse Glimmer 30B</th></tr></thead>
+      <tbody>
+        <tr><td>End-to-end latency p50 / p90</td><td class="n"><b>3.52 / 4.37 s</b></td><td class="n">6.83 / 8.85 s</td></tr>
+        <tr><td>Time to first token p50 / p90</td><td class="n">0.435 / 0.497 s</td><td class="n">0.493 / 0.594 s</td></tr>
+        <tr><td>Decode speed (median)</td><td class="n">64.7 tok/s</td><td class="n">62.5 tok/s</td></tr>
+        <tr><td>Prompt / output tokens (median)</td><td class="n">3,405 / 201</td><td class="n">4,126 / 391</td></tr>
+        <tr><td>Calls measured</td><td class="n">599</td><td class="n">598</td></tr>
+      </tbody></table></div>
+    <figure class="figwrap"><svg class="lat-fig" viewBox="0 0 760 250" role="img" aria-label="Median per-call latency by subtask: Qwen 2.8 to 3.9 seconds, Muse 6.3 to 7.2 seconds">
+      <g font-size="12" fill="#8a949e">
+        <text x="150" y="232">0 s</text><text x="290" y="232">2 s</text><text x="430" y="232">4 s</text><text x="570" y="232">6 s</text><text x="704" y="232">8 s</text>
+      </g>
+      <g stroke="#2d3640"><line x1="156" y1="16" x2="156" y2="216"/><line x1="296" y1="16" x2="296" y2="216"/><line x1="436" y1="16" x2="436" y2="216"/><line x1="576" y1="16" x2="576" y2="216"/><line x1="716" y1="16" x2="716" y2="216"/></g>
+      <g font-size="12.5" fill="#e6e9ed">
+        <text x="10" y="44">Ego-MC</text><text x="10" y="94">EgoConv</text><text x="10" y="144">EgoProactive</text><text x="10" y="194">EgoLongQA</text>
+      </g>
+      <g fill="#4dabf7"><rect x="156" y="26" width="193" height="14" rx="2"/><rect x="156" y="76" width="267" height="14" rx="2"/><rect x="156" y="126" width="244" height="14" rx="2"/><rect x="156" y="176" width="272" height="14" rx="2"/></g>
+      <g fill="#ffa94d"><rect x="156" y="42" width="444" height="14" rx="2"/><rect x="156" y="92" width="482" height="14" rx="2"/><rect x="156" y="142" width="477" height="14" rx="2"/><rect x="156" y="192" width="507" height="14" rx="2"/></g>
+      <g font-size="11" fill="#e6e9ed" font-family="JetBrains Mono, monospace">
+        <text x="355" y="38">2.76</text><text x="606" y="54">6.35</text><text x="429" y="88">3.81</text><text x="644" y="104">6.89</text>
+        <text x="406" y="138">3.49</text><text x="639" y="154">6.81</text><text x="434" y="188">3.88</text><text x="669" y="204">7.24</text>
+      </g>
+      <g font-size="12" fill="#8a949e"><rect x="560" y="0" width="10" height="10" fill="#4dabf7"/><text x="576" y="9">Qwen3.8-27B</text><rect x="660" y="0" width="10" height="10" fill="#ffa94d"/><text x="676" y="9">Muse</text></g>
+    </svg></figure>
+    <ul class="points">
+      <li><b>Why Muse is slower.</b> Prefill and decode speed are almost the same. Muse writes about twice as many tokens per call (391 vs 201) because it reasons in its <code>to=self</code> channel before the JSON answer, and its prompts are about 20 % longer.</li>
+      <li><b>Under load.</b> During the full run, with 40–64 concurrent streams per GPU, median call latency rose to 10.2 s (Qwen) and 16.9 s (Muse) on Ego-MC and to 24.6 s and 38.6 s on Wearable AI. These numbers measure throughput settings, not the model.</li>
+      <li><b>Real time.</b> At a 2 s refresh cadence, neither model keeps up with a live stream on one H200 even in isolation; latency here is measured under media-time replay, where the stream waits for the model.</li>
+    </ul>
   </section>
 
   <section class="exp-section"><h2 id="visualization">Visualization</h2>
-    <p>One highlight clip per item (all 25), both models in the same clip: segments around gold events, decision points and model utterances, with the media time stamped top-left. 480p, no audio, 32 MB in total.</p>
+    <p>Nine items picked at random with a fixed seed (3 Ego-MC videos, 2 per Wearable AI subtask), not chosen for outcome. Each clip shows both models: segments around gold events, decision points and model utterances, with the media time stamped top-left. 480p, no audio, 17.7 MB in total.</p>
     <div class="legend"><span><i style="background:#ffffff"></i>task / question</span><span><i style="background:#51cf66"></i>gold</span><span><i style="background:#4dabf7"></i>Qwen3.8-27B</span><span><i style="background:#ffa94d"></i>Muse Glimmer 30B</span></div>
     <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="streamingbench" type="button">StreamingBench<span>5</span></button>
-      <button class="tab" data-tab="ego_mc" type="button">Ego-MC-Bench<span>5</span></button>
-      <button class="tab" data-tab="wearable_ai" type="button">Wearable AI<span>5</span></button>
-      <button class="tab" data-tab="ovo_bench" type="button">OVO-Bench<span>5</span></button>
-      <button class="tab" data-tab="proactivevideoqa" type="button">ProactiveVideoQA<span>5</span></button>
+      <button class="tab active" data-tab="ego_mc" type="button">Ego-MC-Bench<span>3</span></button>
+      <button class="tab" data-tab="wearable_ai" type="button">Wearable AI<span>6</span></button>
     </div>
-    <div class="panel" id="panel-streamingbench">
-      <p class="panel-desc">Real-time MCQ: the question is released at a fixed media time; the clip shows the last 24 s before it.</p>
-      <div class="demo-grid">
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0008_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0008_i0.mp4"></video>
-          <figcaption>
-            <div class="demo-title">sample_8 <span class="demo-sub">Event Understanding</span><span class="demo-len">28 s of highlights · 0.7 MB</span></div>
-            <div class="demo-what">Question at 256 s: “What is the outcome of Bernardo&#x27;s penalty kick?”</div>
-            <div class="demo-outcome">Gold D · Qwen D · Muse D</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0424_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0424_i0.mp4"></video>
-          <figcaption>
-            <div class="demo-title">sample_424 <span class="demo-sub">Text-Rich Understanding</span><span class="demo-len">28 s of highlights · 0.4 MB</span></div>
-            <div class="demo-what">Question at 490 s: “What text is displayed on the screen right now?”</div>
-            <div class="demo-outcome">Gold C · Qwen C · Muse C</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0484_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0484_i0.mp4"></video>
-          <figcaption>
-            <div class="demo-title">sample_484 <span class="demo-sub">Event Understanding</span><span class="demo-len">28 s of highlights · 0.5 MB</span></div>
-            <div class="demo-what">Question at 585 s: “What is the sequence of the racecars when the racecars sprints?”</div>
-            <div class="demo-outcome">Gold A · Qwen C · Muse C</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0139_i1.jpg" src="assets/clips/streamingbench/streamingbench_real_0139_i1.mp4"></video>
-          <figcaption>
-            <div class="demo-title">sample_139 <span class="demo-sub">Causal Reasoning</span><span class="demo-len">28 s of highlights · 0.3 MB</span></div>
-            <div class="demo-what">Question at 180 s: “Why did the hand reach towards the palette just now?”</div>
-            <div class="demo-outcome">Gold B · Qwen B · Muse B</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/streamingbench/streamingbench_real_0306_i0.jpg" src="assets/clips/streamingbench/streamingbench_real_0306_i0.mp4"></video>
-          <figcaption>
-            <div class="demo-title">sample_306 <span class="demo-sub">Object Recognition</span><span class="demo-len">28 s of highlights · 0.8 MB</span></div>
-            <div class="demo-what">Question at 534 s: “What is the primary color of the subway train?”</div>
-            <div class="demo-outcome">Gold C · Qwen C · Muse C</div>
-          </figcaption>
-        </figure>
-      </div>
-    </div>
-    <div class="panel" id="panel-ego_mc" hidden>
+    <div class="panel" id="panel-ego_mc">
       <p class="panel-desc">Recipe guidance: each instruction is released at its timestamp; the model must give Feedback on mistakes and Success on completion.</p>
       <div class="demo-grid">
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010033.jpg" src="assets/clips/ego_mc/ego_mc_GX010033.mp4"></video>
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010063.jpg" src="assets/clips/ego_mc/ego_mc_GX010063.mp4"></video>
           <figcaption>
-            <div class="demo-title">GX010033 <span class="demo-sub">11 steps, 7 min</span><span class="demo-len">99 s of highlights · 1.5 MB</span></div>
-            <div class="demo-what">Gold: 5 mistake feedbacks, 10 successes</div>
-            <div class="demo-outcome">Qwen 0 feedback / 6 success · Muse 37 feedback / 2 success</div>
+            <div class="demo-title">GX010063 <span class="demo-sub">10 steps, 14 min</span><span class="demo-len">99 s of highlights · 2.1 MB</span></div>
+            <div class="demo-what">Gold: 12 mistake feedbacks, 10 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 4 success · Muse 11 feedback / 4 success</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010054.jpg" src="assets/clips/ego_mc/ego_mc_GX010054.mp4"></video>
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010064.jpg" src="assets/clips/ego_mc/ego_mc_GX010064.mp4"></video>
           <figcaption>
-            <div class="demo-title">GX010054 <span class="demo-sub">17 steps, 14 min</span><span class="demo-len">99 s of highlights · 1.4 MB</span></div>
-            <div class="demo-what">Gold: 11 mistake feedbacks, 17 successes</div>
-            <div class="demo-outcome">Qwen 0 feedback / 2 success · Muse 15 feedback / 4 success</div>
+            <div class="demo-title">GX010064 <span class="demo-sub">8 steps, 12 min</span><span class="demo-len">100 s of highlights · 2.1 MB</span></div>
+            <div class="demo-what">Gold: 10 mistake feedbacks, 8 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 6 success · Muse 18 feedback / 3 success</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010065.jpg" src="assets/clips/ego_mc/ego_mc_GX010065.mp4"></video>
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010068.jpg" src="assets/clips/ego_mc/ego_mc_GX010068.mp4"></video>
           <figcaption>
-            <div class="demo-title">GX010065 <span class="demo-sub">9 steps, 8 min</span><span class="demo-len">98 s of highlights · 1.9 MB</span></div>
-            <div class="demo-what">Gold: 9 mistake feedbacks, 9 successes</div>
-            <div class="demo-outcome">Qwen 1 feedback / 6 success · Muse 50 feedback / 4 success</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010036.jpg" src="assets/clips/ego_mc/ego_mc_GX010036.mp4"></video>
-          <figcaption>
-            <div class="demo-title">GX010036 <span class="demo-sub">16 steps, 18 min</span><span class="demo-len">100 s of highlights · 1.8 MB</span></div>
-            <div class="demo-what">Gold: 7 mistake feedbacks, 16 successes</div>
-            <div class="demo-outcome">Qwen 0 feedback / 5 success · Muse 11 feedback / 7 success</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010053.jpg" src="assets/clips/ego_mc/ego_mc_GX010053.mp4"></video>
-          <figcaption>
-            <div class="demo-title">GX010053 <span class="demo-sub">17 steps, 20 min</span><span class="demo-len">99 s of highlights · 1.8 MB</span></div>
-            <div class="demo-what">Gold: 11 mistake feedbacks, 17 successes</div>
-            <div class="demo-outcome">Qwen 0 feedback / 8 success · Muse 12 feedback / 8 success</div>
+            <div class="demo-title">GX010068 <span class="demo-sub">16 steps, 10 min</span><span class="demo-len">100 s of highlights · 1.8 MB</span></div>
+            <div class="demo-what">Gold: 11 mistake feedbacks, 16 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 4 success · Muse 15 feedback / 4 success</div>
           </figcaption>
         </figure>
       </div>
@@ -356,137 +360,84 @@ proactive poll (ProactiveVideoQA):  You are a proactive assistant answering the 
       <p class="panel-desc">EgoProactive: one interrupt/silent decision per chunk end · EgoConv: answer each user question · EgoLongQA: question revealed at the end.</p>
       <div class="demo-grid">
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0299_7210ea1ed76b722b.mp4.mp4"></video>
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0306_a433344ef605e712.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0306_a433344ef605e712.mp4.mp4"></video>
           <figcaption>
-            <div class="demo-title">7210ea1e <span class="demo-sub">EgoProactive</span><span class="demo-len">88 s of highlights · 2.4 MB</span></div>
-            <div class="demo-what">“How do I create a DIY gift box from cardstock by folding and taping?” · 10 chunks, gold interrupts in 5</div>
-            <div class="demo-outcome">Qwen interrupted 10 · Muse interrupted 7</div>
+            <div class="demo-title">a433344e <span class="demo-sub">EgoConv</span><span class="demo-len">60 s of highlights · 1.9 MB</span></div>
+            <div class="demo-what">5 questions during a Sports conversation; only the listed intervals are visible</div>
+            <div class="demo-outcome">Qwen answered 5/5 · Muse answered 5/5</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0693_fddac0c9fb6bfb7f.mp4.mp4"></video>
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0516_373a639c8fbfa548.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0516_373a639c8fbfa548.mp4.mp4"></video>
           <figcaption>
-            <div class="demo-title">fddac0c9 <span class="demo-sub">EgoProactive</span><span class="demo-len">98 s of highlights · 2.8 MB</span></div>
-            <div class="demo-what">“How do I make a pipe cleaner flower?” · 18 chunks, gold interrupts in 11</div>
-            <div class="demo-outcome">Qwen interrupted 18 · Muse interrupted 10</div>
+            <div class="demo-title">373a639c <span class="demo-sub">EgoConv</span><span class="demo-len">99 s of highlights · 2.7 MB</span></div>
+            <div class="demo-what">9 questions during a Cooking conversation; only the listed intervals are visible</div>
+            <div class="demo-outcome">Qwen answered 9/9 · Muse answered 9/9</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0387_871fb7842cf193f1.mp4.mp4"></video>
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0131_2fc07122287502b0.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0131_2fc07122287502b0.mp4.mp4"></video>
           <figcaption>
-            <div class="demo-title">871fb784 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 1.1 MB</span></div>
-            <div class="demo-what">10-min clip streamed, question revealed at the end: “Which area of the canvas retained visible numbers the longest before I painted over it, and what color did I use to cover it?”</div>
-            <div class="demo-outcome">Gold C · Qwen B · Muse C</div>
+            <div class="demo-title">2fc07122 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 1.1 MB</span></div>
+            <div class="demo-what">10-min clip streamed, question revealed at the end: “What did I do with the white-backed puzzle piece that I first saw among the tiger-striped pieces?”</div>
+            <div class="demo-outcome">Gold C · Qwen C · Muse C</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0651_459ebb35b924b8aa.mp4.mp4"></video>
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0238_4fa2d52355bf6f66.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0238_4fa2d52355bf6f66.mp4.mp4"></video>
           <figcaption>
-            <div class="demo-title">459ebb35 <span class="demo-sub">EgoConv</span><span class="demo-len">99 s of highlights · 3.8 MB</span></div>
-            <div class="demo-what">11 questions during a DailyActivities conversation; only the listed intervals are visible</div>
-            <div class="demo-outcome">Free-form answers vs reference (BLEU-4: Qwen 0.065, Muse 0.040)</div>
+            <div class="demo-title">4fa2d523 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 2.2 MB</span></div>
+            <div class="demo-what">10-min clip streamed, question revealed at the end: “Early in the video I saw a blue neon X in the background. Later, I noticed a different neon sign on what seemed to be an upper level. What was the text of that sign and what did it indicate?”</div>
+            <div class="demo-outcome">Gold C · Qwen C · Muse D</div>
           </figcaption>
         </figure>
         <figure class="demo">
-          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0212_51858592483eb035.mp4.mp4"></video>
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0175_42273b360ba21855.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0175_42273b360ba21855.mp4.mp4"></video>
           <figcaption>
-            <div class="demo-title">51858592 <span class="demo-sub">EgoProactive</span><span class="demo-len">98 s of highlights · 4.0 MB</span></div>
-            <div class="demo-what">“How do I make a chocolate peanut butter protein shake?” · 20 chunks, gold interrupts in 10</div>
-            <div class="demo-outcome">Qwen interrupted 10 · Muse interrupted 14</div>
+            <div class="demo-title">42273b36 <span class="demo-sub">EgoProactive</span><span class="demo-len">99 s of highlights · 2.3 MB</span></div>
+            <div class="demo-what">“How do I make turkey, cheese, and spinach roll-ups?” · 22 chunks, gold interrupts in 11</div>
+            <div class="demo-outcome">Qwen interrupted 21 · Muse interrupted 15</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0379_8b21e98023cef25d.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0379_8b21e98023cef25d.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">8b21e980 <span class="demo-sub">EgoProactive</span><span class="demo-len">72 s of highlights · 1.5 MB</span></div>
+            <div class="demo-what">“How do I split a bill evenly?” · 12 chunks, gold interrupts in 6</div>
+            <div class="demo-outcome">Qwen interrupted 1 · Muse interrupted 4</div>
           </figcaption>
         </figure>
       </div>
     </div>
-    <div class="panel" id="panel-ovo_bench" hidden>
-      <p class="panel-desc">Probes at annotated times: MCQ, “enough evidence?” (CRR), current step (SSR), repetition count (REC).</p>
-      <div class="demo-grid">
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1262.jpg" src="assets/clips/ovo_bench/ovo_bench_1262.mp4"></video>
-          <figcaption>
-            <div class="demo-title">id 1262 · AutoEvalMetaData <span class="demo-sub">ACR</span><span class="demo-len">13 s of highlights · 0.3 MB</span></div>
-            <div class="demo-what">1 probe(s) at 65 s</div>
-            <div class="demo-outcome">Gold D · Qwen C · Muse C</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_0634.jpg" src="assets/clips/ovo_bench/ovo_bench_0634.mp4"></video>
-          <figcaption>
-            <div class="demo-title">id 634 · YouTube_Games <span class="demo-sub">STU</span><span class="demo-len">13 s of highlights · 0.2 MB</span></div>
-            <div class="demo-what">1 probe(s) at 472 s</div>
-            <div class="demo-outcome">Gold B · Qwen B · Muse &quot;?&quot; (its literal answer)</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1499.jpg" src="assets/clips/ovo_bench/ovo_bench_1499.mp4"></video>
-          <figcaption>
-            <div class="demo-title">id 1499 · MovieNet <span class="demo-sub">CRR</span><span class="demo-len">51 s of highlights · 0.5 MB</span></div>
-            <div class="demo-what">5 probe(s) at 397 s, 412 s, 430 s, 438 s, 458 s</div>
-            <div class="demo-outcome">Gold No/No/Yes/Yes/Yes · Qwen No/No/Yes/Yes/Yes · Muse No/No/Yes/Yes/Yes</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_0390.jpg" src="assets/clips/ovo_bench/ovo_bench_0390.mp4"></video>
-          <figcaption>
-            <div class="demo-title">id 390 · Ego4D <span class="demo-sub">HLD</span><span class="demo-len">13 s of highlights · 0.5 MB</span></div>
-            <div class="demo-what">1 probe(s) at 302 s</div>
-            <div class="demo-outcome">Gold B · Qwen B · Muse B</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/ovo_bench/ovo_bench_1198.jpg" src="assets/clips/ovo_bench/ovo_bench_1198.mp4"></video>
-          <figcaption>
-            <div class="demo-title">id 1198 · Ego4D <span class="demo-sub">FPD</span><span class="demo-len">13 s of highlights · 0.6 MB</span></div>
-            <div class="demo-what">1 probe(s) at 252 s</div>
-            <div class="demo-outcome">Gold D · Qwen B · Muse B</div>
-          </figcaption>
-        </figure>
-      </div>
-    </div>
-    <div class="panel" id="panel-proactivevideoqa" hidden>
-      <p class="panel-desc">Standing user question; the model decides when to speak. Green = reference reply times.</p>
-      <div class="demo-grid">
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_WEB_m4sWjNlPlVs.43.mp4.mp4"></video>
-          <figcaption>
-            <div class="demo-title">m4sWjNlPlVs <span class="demo-sub">WEB</span><span class="demo-len">35 s of highlights · 0.6 MB</span></div>
-            <div class="demo-what">“What is the person doing with the piece of paper?” · 3 reference replies, 0.6 min</div>
-            <div class="demo-outcome">Qwen spoke 15× · Muse spoke 8×</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_WEB_1rtBD13QbXE.16.mp4.mp4"></video>
-          <figcaption>
-            <div class="demo-title">1rtBD13QbXE <span class="demo-sub">WEB</span><span class="demo-len">11 s of highlights · 0.1 MB</span></div>
-            <div class="demo-what">“What is being shown or described in the video?” · 2 reference replies, 0.2 min</div>
-            <div class="demo-outcome">Qwen spoke 3× · Muse spoke 1×</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_EGO_c2d06df7-5d3a-4116-9edb-f1c81a4f669b-0-360.mp4.mp4"></video>
-          <figcaption>
-            <div class="demo-title">c2d06df7-5d3a- <span class="demo-sub">EGO</span><span class="demo-len">100 s of highlights · 2.3 MB</span></div>
-            <div class="demo-what">“What are the different ways in which the dough is kneaded during the preparation process?” · 3 reference replies, 6.0 min</div>
-            <div class="demo-outcome">Qwen spoke 18× · Muse spoke 25×</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_EGO_f7866811-1030-4be5-af61-7f1dd797f36b-0-360.mp4.mp4"></video>
-          <figcaption>
-            <div class="demo-title">f7866811-1030- <span class="demo-sub">EGO</span><span class="demo-len">95 s of highlights · 1.6 MB</span></div>
-            <div class="demo-what">“How is the dough shaped during the preparation process?” · 1 reference replies, 6.0 min</div>
-            <div class="demo-outcome">Qwen spoke 54× · Muse spoke 51×</div>
-          </figcaption>
-        </figure>
-        <figure class="demo">
-          <video controls preload="none" poster="assets/clips/proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.jpg" src="assets/clips/proactivevideoqa/proactivevideoqa_VAD_Shoplifting001_x264.mp4.mp4"></video>
-          <figcaption>
-            <div class="demo-title">Shoplifting001 <span class="demo-sub">VAD</span><span class="demo-len">26 s of highlights · 0.3 MB</span></div>
-            <div class="demo-what">“What suspicious or harmful activities, including unlawful, criminal behaviors or destructive accidents, are ha” · 1 reference replies, 2.4 min</div>
-            <div class="demo-outcome">Qwen spoke 1× · Muse spoke 2×</div>
-          </figcaption>
-        </figure>
-      </div>
-    </div>
+  </section>
+
+  <section class="exp-section"><h2 id="observations">Observations and Conclusion</h2>
+    <ul class="points">
+      <li><b>Speaking at the right time is the weak point.</b> The same model behaves very differently depending on the task framing. On Ego-MC, Qwen flags 2 of 392 mistakes; on EgoProactive it interrupts in 80 % of the chunks where it should and in 73 % of the chunks where it should stay silent. Muse speaks more on Ego-MC (recall 0.36, precision 0.16) and is close to balanced on EgoProactive.</li>
+      <li><b>Memory carries long videos better for Qwen.</b> EgoLongQA questions arrive after a 10-minute stream, so the answer must come from the 512-token memory. Qwen answers every question and gets 64 % right. Muse declines 41 % of the time, and even when it answers it is less accurate (52 %).</li>
+      <li><b>Free-form answers are hard to judge without a judge.</b> EgoConv BLEU-4 is low for both models (0.09 vs 0.05) and says little about correctness; the LLM-judge metric is still blocked.</li>
+      <li><b>Reasoning costs time.</b> Muse's short reasoning before each answer doubles output length and per-call latency, without a clear accuracy gain on these tasks.</li>
+      <li><b>Conclusion.</b> A sliding window plus self-written memory is enough to run both models end to end on full benchmarks, but neither is a usable proactive assistant yet: timing decisions are only slightly better than chance for Muse and biased for Qwen, and per-call latency is well above the 2 s refresh cadence.</li>
+    </ul>
+    <h3>Next steps</h3>
+    <ul class="points">
+      <li>Run the LLM-judge metrics (EgoConv judge, Ego-MC feedback quality) once a judge is configured.</li>
+      <li>Test prompt changes aimed at timing: calibrated interrupt instructions, and asking Muse to always pick an option on MCQs.</li>
+      <li>Move per-call text after the frames so consecutive calls share a cached prefix (7 of 8 frames repeat), and measure the latency gain.</li>
+      <li>Compare against an offline upper bound that sees the whole video, to separate window/memory limits from model limits.</li>
+    </ul>
+  </section>
+
+  <section class="exp-section"><h2 id="reproduction">Reproduction</h2>
+    <p>Code: <a href="https://github.com/jxb1st/glimmer_qwen_streaming_baseline-code">jxb1st/glimmer_qwen_streaming_baseline-code</a>, config <code>configs/full_klone.yaml</code>. On a SLURM cluster with the vLLM Muse Glimmer image:</p>
+    <pre class="prompt-body">scripts/download_all.sh all                                    # pinned models + full benchmark data
+python -m streaming_smoke {inventory,sample,acquire,validate,estimate} --config configs/full_klone.yaml
+scripts/serve_and_run.sh muse30b 1 64                          # one worker per GPU; start as many as available
+scripts/serve_and_run.sh qwen27b 1 64
+python -m streaming_smoke score  --config configs/full_klone.yaml
+python -m streaming_smoke report --config configs/full_klone.yaml
+scripts/latency_study.sh muse30b 5 30                          # isolated single-stream latency
+scripts/latency_study.sh qwen27b 5 30</pre>
   </section>
 
   <footer class="page-footer">
