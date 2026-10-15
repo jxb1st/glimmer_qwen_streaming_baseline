@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wearable AI · Sliding-Window Streaming VLMs — Interactive Model Experiments</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="page.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="exp-header">
+    <a href="https://jxb1st.github.io/interactive_model_panel/" class="back-link">← Back to Interactive Model Experiments</a>
+    <div class="exp-title-row">
+      <span class="card-icon c2">SW</span>
+      <div>
+        <h1>Sliding-Window Streaming VLMs on Wearable AI</h1>
+        <div class="exp-meta">
+          <time datetime="2026-10-12">Oct 12, 2026</time>
+          <span class="status completed">completed</span>
+          <span class="tag">video</span><span class="tag">streaming</span><span class="tag">interaction</span><span class="tag">recurrent memory</span><span class="tag">latency</span>
+        </div>
+      </div>
+    </div>
+    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B with an 8-frame sliding window and a self-written memory on all 2,100 Wearable AI validation sessions (EgoLongQA, EgoConv, EgoProactive), run and scored with the official starter kit, with and without the leaderboard's 300 s per-sample rule; EgoProactive is also run under the Pro2Bench paper's protocol.</p>
+  </header>
+
+  <nav class="pagenav" aria-label="Pages"><a class="tab" href="index.html">Overview</a><a class="tab" href="ego_mc.html">Ego-MC-Bench</a><a class="tab active" href="wearable_ai.html" aria-current="page">Wearable AI</a></nav>
+  <nav class="exp-toc" data-toc aria-label="Sections"></nav>
+
+  <section class="exp-section"><h2 id="setup">Setup and Protocol</h2>
+    <p class="note">Models, sliding window, memory, serving and the latency study are shared by both benchmarks: see the <a href="index.html">overview page</a>.</p>
+    <h3>Data and memory refresh</h3>
+    <ul class="points">
+      <li><b>Wearable AI (validation split).</b> All 2,100 sessions (the official scorers need all 700 rows per task). EgoConv row 696 has malformed intervals; its turns are answered in listed order, as the starter kit does.</li>
+      <li><b>Memory refresh (Wearable AI).</b> A separate memory-update call every 2 s of media (10 s for media longer than 10 minutes) and after each decision. Decision times are the benchmark's.</li>
+    </ul>
+    <h3>Wearable AI evaluation protocol (official starter kit)</h3>
+    <ul class="points">
+      <li><b>Source.</b> The <a href="https://huggingface.co/datasets/facebook/wearable-ai">Wearable AI</a> starter kit (identical at our pinned revision and current main). There is no benchmark paper with baselines for the three tasks, so the comparison points are the validation leaderboard and, for EgoProactive, the Pro2Bench paper.</li>
+      <li><b>Decisions and prompts.</b> Official prompts and history helpers are imported from the starter kit. EgoLongQA: one question after the video, no system prompt. EgoConv: turn <i>i</i> is answered when its interval ends, with the model's own earlier answers as history. EgoProactive: a decision at the end of every ~8 s chunk, with the query and the last 4 turns of the gold dialogue as history, answering <code>$interrupt$ …</code> or <code>$silent$</code>.</li>
+      <li><b>Our variable.</b> The starter kit samples frames from the video; we give the 8 most recent frames plus the model's own memory, placed where the starter kit puts its frames. Output budget 4,096 tokens per call (the starter kit's 16 / 512 are baseline defaults, not rules).</li>
+      <li><b>Scoring.</b> The starter kit's <code>run_evaluation.py</code>, unmodified: EgoLongQA accuracy, EgoConv BLEU-4 and the Llama-4-Maverick LLM judge (the leaderboard metric), EgoProactive macro and G-mean F1.</li>
+      <li><b>300 s rule.</b> The leaderboard allows 300 s of compute per sample. We estimate each call's isolated single-stream H200 time from its token counts (first-token time plus decode speed from the latency study); a sample over 300 s is exported as empty. Scores are reported with and without the rule.</li>
+      <li><b>Pro2Bench protocol (EgoProactive only).</b> The benchmark paper (<a href="https://arxiv.org/abs/2606.04970">arXiv 2606.04970</a>, App. G, No-Plan condition): its system prompt and duplex user prompt verbatim, 8 frames per chunk, G-mean F1. The visual summary slot holds our memory; the paper's PQS needs an LLM judge and is not computed.</li>
+    </ul>
+  </section>
+
+  <section class="exp-section"><h2 id="prompts">Prompts</h2>
+    <div id="prompts-body">
+      <h3>Wearable AI (official starter kit)</h3>
+      <div class="prompt variant"><div class="prompt-head">What precedes the first user message <span class="prompt-note">our wrapper, in place of the starter kit's sampled frames</span></div>
+        <pre class="prompt-body">Most recent frames (8), oldest first:
+[frame at 121.0s] &lt;image&gt; … [frame at 128.0s] &lt;image&gt;
+Your memory of earlier footage (written by you):
+{&quot;observed_facts&quot;: [...], &quot;completed_steps&quot;: [...], &quot;current_state&quot;: &quot;...&quot;, &quot;pending_commitments&quot;: [...], &quot;uncertainties&quot;: [...]}</pre></div>
+      <div class="prompt user"><div class="prompt-head">EgoLongQA: user message <span class="prompt-note">starter kit, verbatim; no system prompt</span></div>
+        <pre class="prompt-body">Watch the video and answer the following multiple-choice question.
+
+Question: {question}
+
+Options:
+{mcq_options}
+
+Answer with ONLY the single letter of the correct option (A, B, C, or D). Do not include any other text.</pre></div>
+      <div class="prompt system"><div class="prompt-head">EgoConv: system prompt <span class="prompt-note">starter kit, verbatim; then questions 1…i with the model's own earlier answers</span></div>
+        <pre class="prompt-body">You are a helpful assistant answering questions about a video the user is watching. Answer directly and concisely based on what you see in the video. Do not start your response with phrases like &quot;Sure!&quot;, &quot;Of course!&quot;, &quot;The answer is&quot;, or similar preambles. Just provide the answer.</pre></div>
+      <div class="prompt system"><div class="prompt-head">EgoProactive: system prompt <span class="prompt-note">starter kit, verbatim; then the query and the last 4 gold dialogue turns</span></div>
+        <pre class="prompt-body">You are a proactive AI assistant watching a first-person video of the user performing a procedural task. The user has issued a single high-level query. As the video unfolds you observe a series of short (~8s) chunks; after each chunk you decide whether to speak or stay silent.
+
+Output format (single line, no preamble):
+  - If you should speak: start with the literal token `$interrupt$` followed by your suggestion or answer in plain text.
+  - If you should stay silent: output the single literal token `$silent$` and nothing else.
+
+Speak when the user asks you something, when an earlier action needs correction, or when you have useful, timely guidance for the next step. Stay silent when nothing useful needs to be said.</pre></div>
+      <div class="prompt variant"><div class="prompt-head">Memory update <span class="prompt-note">ours, a separate call; [context] = no question yet / turns so far / the user's query</span></div>
+        <pre class="prompt-body">You are watching a live first-person video but only ever see the most recent frames (each labeled with its time in seconds) plus a short written memory that you yourself wrote on the previous update. Nothing else about earlier footage survives, so the memory must carry everything you may need later: what the person did and where, objects and their locations, text you saw, counts, the current state, and what was said.
+Context so far: [context]
+Hard limits: observed_facts at most 8 entries, completed_steps at most 6, pending_commitments at most 3, uncertainties at most 3; every entry at most 15 words and prefixed with its time (e.g. &quot;12s: ...&quot;); current_state at most 40 words. Merge or drop older entries instead of exceeding these limits. Describe only what the frames support.
+Reply with ONE JSON object and nothing else, in exactly this shape:
+{&quot;observed_facts&quot;: [...], &quot;completed_steps&quot;: [...], &quot;current_state&quot;: &quot;...&quot;, &quot;pending_commitments&quot;: [...], &quot;uncertainties&quot;: [...]}</pre></div>
+      <h3>EgoProactive (Pro2Bench paper protocol)</h3>
+      <div class="prompt system"><div class="prompt-head">System prompt <span class="prompt-note">App. G.2, verbatim</span></div>
+        <pre class="prompt-body">You are a helpful, proactive AI assistant guiding a user through a step-by-step procedural task. You observe the user’s activity through egocentric video from their perspective.
+
+Your responsibilities:
+1. Track which step the user is currently performing.
+2. Detect when a step is completed and proactively announce the next step.
+3. Detect mistakes or deviations from the expected procedure:
+ - Skipped steps
+ - Wrong step ordering
+ - Technique errors
+ - Substitutions or improvisations
+4. When a deviation is detected, suggest a recovery action.
+5. If no guidance is needed (user is progressing normally), stay silent.
+
+Output format:
+- If the user needs guidance (step completed, mistake detected, or question asked), respond with: $interrupt$ followed by your guidance.
+- If no guidance is needed, respond with exactly: $silent$
+
+Be concise. Focus on what the user should do next, not what they just did.</pre></div>
+      <div class="prompt user"><div class="prompt-head">User message <span class="prompt-note">after the chunk's 8 frames; No-Plan duplex template, visual summary = our memory</span></div>
+        <pre class="prompt-body">Here is the summary of the recent visual context: {visual_summary}
+Here is the most recent conversation between the user and the assistant:
+User: {user_utterance}
+Assistant: {assistant_response}</pre></div>
+    </div>
+  </section>
+
+  <section class="exp-section"><h2 id="results">Quantitative Results</h2>
+    <p class="note"><span class="ours-key"></span>Highlighted: our method (8-frame sliding window + self-written memory). Other rows are reference results from the benchmark papers. <span class="dir" title="higher is better">↑</span> higher is better · <span class="dir" title="lower is better">↓</span> lower is better · <span class="dir-na">(count)</span> descriptive, neither.</p>
+    <h3>Wearable AI · validation split · official starter-kit protocol (all 2,100 sessions per model)</h3>
+    <div class="tblwrap"><table class="tbl ours-cols">
+      <thead><tr><th>Task · metric</th><th class="n">Ours · Qwen3.8-27B</th><th class="n">Ours · Muse Glimmer 30B</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>EgoLongQA · MCQ accuracy<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.659</b></td><td class="n">0.520</td><td class="st">official</td></tr>
+        <tr><td>EgoLongQA · MCQ accuracy<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.411</b></td><td class="n">0.001</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · BLEU-4<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.063</b></td><td class="n">0.048</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · BLEU-4<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.040</b></td><td class="n">0.015</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · LLM judge<span class="dir" title="higher is better">↑</span> (Llama-4-Maverick)</td><td class="n">–</td><td class="n">–</td><td class="st">pending (judge jobs queued)</td></tr>
+        <tr><td>EgoProactive · macro F1<span class="dir" title="higher is better">↑</span> / G-mean F1<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.487 / 0.486</b></td><td class="n">0.364 / 0.150</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · interrupt / silent recall<span class="dir" title="higher is better">↑</span></td><td class="n">0.40 / 0.59</td><td class="n">0.98 / 0.02</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · macro F1<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.243</b></td><td class="n">0.014</td><td class="st">official</td></tr>
+        <tr><td>Samples over 300 s<span class="dir" title="lower is better">↓</span> (LongQA / Conv / Proactive, of 700 each)</td><td class="n">256 / 275 / 280</td><td class="n">699 / 487 / 667</td><td class="st">isolated-latency estimate</td></tr>
+      </tbody></table></div>
+    <p class="note">Official prompts, decision points and scorers from the starter kit; our 8-frame window plus self-written memory is the only change; 4,096-token output budget. Over-time samples are scored as empty under the 300 s rule. Qwen's 95 failed EgoConv turns are empty answers (first token was end-of-turn). Val leaderboard reference (large division): LongQA best 0.96, zero-shot Qwen2.5-VL-7B 0.59–0.69; EgoConv judge best 0.59.</p>
+    <h3>EgoProactive · Pro2Bench paper protocol (arXiv 2606.04970)</h3>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Model</th><th class="n">G-mean F1<span class="dir" title="higher is better">↑</span></th><th class="n">Interrupt / silent recall<span class="dir" title="higher is better">↑</span></th></tr></thead>
+      <tbody>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B (greedy)</b></td><td class="n"><b>0.533</b></td><td class="n">0.76 / 0.35</td></tr>
+        <tr class="ours"><td><b>Ours · Qwen3.8-27B (greedy)</b></td><td class="n">0.260</td><td class="n">0.06 / 0.98</td></tr>
+        <tr><td>Claude Opus 4.6 (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
+        <tr><td>Qwen3-VL-235B (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
+        <tr><td>Llama 4 Maverick (paper)</td><td class="n">0.49</td><td class="n">–</td></tr>
+        <tr><td>Gemini 3.1 Pro (paper)</td><td class="n">0.46</td><td class="n">–</td></tr>
+        <tr><td>Qwen3.6-VL-27B (paper)</td><td class="n">0.28</td><td class="n">–</td></tr>
+        <tr><td>GPT-5.2 (paper)</td><td class="n">0.00</td><td class="n">–</td></tr>
+      </tbody></table></div>
+    <p class="note">Paper baselines are zero-shot, best of 3 prompt variants; the fine-tuned PWR model reaches 0.68. PQS (needs an LLM judge) is not computed; judge inputs are exported.</p>
+  </section>
+
+  <section class="exp-section"><h2 id="visualization">Visualization</h2>
+    <p>Six sessions picked at random with a fixed seed (2 per subtask), not chosen for outcome. Each clip shows both models: segments around gold events, decision points and model utterances, with the media time stamped top-left. Clips come from the official starter-kit run. 480p, no audio.</p>
+    <div class="legend"><span><i style="background:#ffffff"></i>task / question</span><span><i style="background:#51cf66"></i>gold</span><span><i style="background:#4dabf7"></i>Qwen3.8-27B</span><span><i style="background:#ffa94d"></i>Muse Glimmer 30B</span></div>
+    <div class="panel" id="panel-wearable_ai">
+      <p class="panel-desc">Official starter-kit run. EgoProactive: one <code>$interrupt$</code>/<code>$silent$</code> decision per chunk end · EgoConv: answer each user question · EgoLongQA: question revealed at the end.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0306_a433344ef605e712.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0306_a433344ef605e712.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">a433344e <span class="demo-sub">EgoConv</span><span class="demo-len">60 s of highlights · 1.8 MB</span></div>
+            <div class="demo-what">5 questions during a Sports conversation; only the listed intervals are visible</div>
+            <div class="demo-outcome">Qwen answered 3/5 · Muse answered 5/5</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoconv_0516_373a639c8fbfa548.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoconv_0516_373a639c8fbfa548.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">373a639c <span class="demo-sub">EgoConv</span><span class="demo-len">99 s of highlights · 2.6 MB</span></div>
+            <div class="demo-what">9 questions during a Cooking conversation; only the listed intervals are visible</div>
+            <div class="demo-outcome">Qwen answered 9/9 · Muse answered 9/9</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0131_2fc07122287502b0.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0131_2fc07122287502b0.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">2fc07122 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 1.1 MB</span></div>
+            <div class="demo-what">10-min clip streamed, question revealed at the end: “What did I do with the white-backed puzzle piece that I first saw among the tiger-striped pieces?”</div>
+            <div class="demo-outcome">Gold C · Qwen A · Muse C</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egolongqa_0238_4fa2d52355bf6f66.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egolongqa_0238_4fa2d52355bf6f66.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">4fa2d523 <span class="demo-sub">EgoLongQA</span><span class="demo-len">46 s of highlights · 2.1 MB</span></div>
+            <div class="demo-what">10-min clip streamed, question revealed at the end: “Early in the video I saw a blue neon X in the background. Later, I noticed a different neon sign on what seemed to be an upper level. What was the text of that sign and what did it indicate?”</div>
+            <div class="demo-outcome">Gold C · Qwen C · Muse A</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0175_42273b360ba21855.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0175_42273b360ba21855.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">42273b36 <span class="demo-sub">EgoProactive</span><span class="demo-len">99 s of highlights · 2.2 MB</span></div>
+            <div class="demo-what">“How do I make turkey, cheese, and spinach roll-ups?” · 22 chunks, gold interrupts in 11</div>
+            <div class="demo-outcome">Qwen interrupted 5 · Muse interrupted 22</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/wearable_ai/wearable_ai_egoproactive_0379_8b21e98023cef25d.mp4.jpg" src="assets/clips/wearable_ai/wearable_ai_egoproactive_0379_8b21e98023cef25d.mp4.mp4"></video>
+          <figcaption>
+            <div class="demo-title">8b21e980 <span class="demo-sub">EgoProactive</span><span class="demo-len">72 s of highlights · 1.7 MB</span></div>
+            <div class="demo-what">“How do I split a bill evenly?” · 12 chunks, gold interrupts in 6</div>
+            <div class="demo-outcome">Qwen interrupted 2 · Muse interrupted 11</div>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="exp-section"><h2 id="observations">Observations</h2>
+    <ul class="points">
+      <li><b>On EgoProactive the operating point depends on the prompt.</b> with the starter-kit prompt Muse interrupts in 98 % of chunks (silent recall 0.02) and Qwen is balanced (0.40 / 0.59); with the Pro2Bench prompt Muse is the balanced one (0.76 / 0.35) and Qwen almost never speaks (interrupt recall 0.06).</li>
+      <li><b>Memory carries long videos better for Qwen.</b> EgoLongQA questions arrive after a 10-minute stream, so the answer must come from the 512-token memory. With the official "answer with only the letter" prompt Muse no longer abstains (our earlier prompt: 0.31) and reaches 0.52; Qwen reaches 0.66, inside the 0.59–0.69 range of the zero-shot Qwen2.5-VL-7B leaderboard entries (best entry 0.96).</li>
+      <li><b>Free-form answers still need the judge.</b> EgoConv BLEU-4 is low for both models (0.063 vs 0.048) and says little about correctness; the leaderboard's LLM judge is queued. Qwen's 95 failed turns are empty answers (its first token was end-of-turn).</li>
+      <li><b>The 300 s budget is the binding constraint.</b> Refreshing the memory every 2 s means hundreds of calls per sample. Estimated on an idle H200, Muse exceeds 300 s on 699 of 700 EgoLongQA samples and its scores under the rule drop to about zero; Qwen keeps 0.41 EgoLongQA accuracy and 0.24 EgoProactive macro F1.</li>
+    </ul>
+  </section>
+
+  <section class="exp-section"><h2 id="reproduction">Reproduction</h2>
+    <p>Code: <a href="https://github.com/jxb1st/glimmer_qwen_streaming_baseline-code">jxb1st/glimmer_qwen_streaming_baseline-code</a>, config <code>configs/full_klone.yaml</code>. On a SLURM cluster with the vLLM Muse Glimmer image:</p>
+    <pre class="prompt-body"># Wearable AI with the official starter-kit protocol (all 2,100 rows); Pro2Bench: configs/wearable_pro2bench_klone.yaml
+python tools/prepare_wearable_official.py configs/wearable_official_klone.yaml &lt;validated full_klone run root&gt;
+scripts/serve_and_run.sh muse30b 1 32 configs/wearable_official_klone.yaml   # same for qwen27b
+python -m streaming_smoke score --config configs/wearable_official_klone.yaml --model muse30b
+sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # EgoConv LLM judge, 4 x H200</pre>
+  </section>
+
+  <footer class="page-footer">
+    <span><a href="https://jxb1st.github.io/interactive_model_panel/">← Back to Interactive Model Experiments</a></span>
+    <span><a href="https://jxb1st.github.io/">Home</a></span>
+  </footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>

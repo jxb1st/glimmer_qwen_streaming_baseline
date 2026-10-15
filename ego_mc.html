@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ego-MC-Bench · Sliding-Window Streaming VLMs — Interactive Model Experiments</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="page.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="exp-header">
+    <a href="https://jxb1st.github.io/interactive_model_panel/" class="back-link">← Back to Interactive Model Experiments</a>
+    <div class="exp-title-row">
+      <span class="card-icon c2">SW</span>
+      <div>
+        <h1>Sliding-Window Streaming VLMs on Ego-MC-Bench</h1>
+        <div class="exp-meta">
+          <time datetime="2026-10-12">Oct 12, 2026</time>
+          <span class="status completed">completed</span>
+          <span class="tag">video</span><span class="tag">streaming</span><span class="tag">interaction</span><span class="tag">recurrent memory</span><span class="tag">latency</span>
+        </div>
+      </div>
+    </div>
+    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B with an 8-frame sliding window and a self-written memory on Ego-MC-Bench (39 cooking videos), run with the Ego-MC-Bench paper's own protocol (per-recipe step and full recipe) and scored with its official QICD evaluator, so the numbers sit next to the paper's.</p>
+  </header>
+
+  <nav class="pagenav" aria-label="Pages"><a class="tab" href="index.html">Overview</a><a class="tab active" href="ego_mc.html" aria-current="page">Ego-MC-Bench</a><a class="tab" href="wearable_ai.html">Wearable AI</a></nav>
+  <nav class="exp-toc" data-toc aria-label="Sections"></nav>
+
+  <section class="exp-section"><h2 id="setup">Setup and Protocol</h2>
+    <p class="note">Models, sliding window, memory, serving and the latency study are shared by both benchmarks: see the <a href="index.html">overview page</a>.</p>
+    <h3>Data</h3>
+    <ul class="points">
+      <li><b>Ego-MC-Bench.</b> 40 annotated cooking videos; 39 usable (GX010039 has no instruction in its annotation, so no step can be posed).</li>
+    </ul>
+    <h3>Ego-MC evaluation protocol (as in the paper)</h3>
+    <ul class="points">
+      <li><b>Source.</b> Ego-MC-Bench paper (Bhattacharyya et al., <a href="https://arxiv.org/abs/2606.09547">arXiv 2606.09547</a>, Sec. 5 and App. D–F) and its <a href="https://apratimbh.github.io/livecookv2/">project page</a>, which lists the official QICD evaluator as its eval code.</li>
+      <li><b>Turns.</b> Every 5 s the model is asked whether the current recipe step is complete (YES/NO + why); if not, the detailed mistake prompt (YES. &lt;feedback&gt; / NO) with the feedbacks of the last minute as already-detected mistakes. Both prompts verbatim from App. D, no system prompt.</li>
+      <li><b>Settings.</b> Per-recipe step: each step starts at its ground-truth time with only its instruction and ends when the model confirms completion (else at the next step); window, memory and feedback history reset per step. Full recipe: one continuous stream, instructions released at their ground-truth times regardless of the model.</li>
+      <li><b>Scoring.</b> The official QICD <code>eval.py</code> (commit a9f73f7), unmodified: 30 s detection window (±15 s), BERTScore rescaled with baseline. Ego-MC annotations are mapped to its input format (Feedback → mistake, Success → success; user turns dropped).</li>
+      <li><b>Our variable.</b> Instead of the whole past video, each call sees the 8 most recent frames plus the model's own memory, refreshed by a separate memory-update call at the end of every turn. Muse sampled with its official settings, Qwen greedy, as on Wearable AI.</li>
+      <li><b>Parsing.</b> A leading YES/NO is used as is; otherwise the first standalone upper-case YES/NO (Qwen often answers the completion prompt "Based on the frames … <b>NO</b>"); otherwise the call counts as failed.</li>
+    </ul>
+  </section>
+
+  <section class="exp-section"><h2 id="prompts">Prompts</h2>
+    <div id="prompts-body">
+      <h3>Ego-MC (paper protocol)</h3>
+      <div class="prompt user"><div class="prompt-head">Turn step 1: check if recipe step complete <span class="prompt-note">App. D, verbatim</span></div>
+        <pre class="prompt-body">You are an expert cooking assistant who is observing a person cook.
+
+##INSTRUCTIONS:
+
+The person is currently at the following recipe step: [recipe_step]. Has the person already completed the recipe step? If the person has completed the recipe step answer ‘YES’ else answer ‘NO’. If you answer ‘YES’ describe why you think the person already completed the recipe step.</pre></div>
+      <div class="prompt user"><div class="prompt-head">Turn step 2: check for mistake <span class="prompt-note">App. D detailed prompt, verbatim; asked only if step 1 is NO</span></div>
+        <pre class="prompt-body">You are an expert cooking assistant who is observing a person cook. You should look out for mistakes made by the person.
+
+##INSTRUCTIONS:
+The person is trying to complete the following recipe step: [recipe_step]. Your task is to check if the person is about to make or has already made a mistake. Mistakes occur when the person performs actions that deviates from the instruction and DIRECTLY INTERFERES WITH SUCCESSFUL INSTRUCTION COMPLETION. Do not penalize actions that do not directly interfere with instruction completion (e.g. washing broccoli before cutting, if the instruction just says ‘cut broccoli’).
+
+Here are some common types of mistakes that you should look out for:
+1. Technique Error: A mistake in how a step is physically performed. Examples include chopping with the wrong motion, stirring when folding is required, or spilling during transfer, producing uneven cuts or texture issues even when tools and amounts are right. Ignore minor technique errors such as not holding or gripping objects properly, holding with a risk of dropping etc. that do not interfere directly with recipe completion.
+2. Preparation Error: A setup mistake before executing the step . Using the wrong or dirty utensil, not washing/peeling/draining ingredients, insufficient draining of fluid, cutting/chopping without peeling which makes correct execution difficult or unsafe.
+3. Measurement Error: An error in quantity — wrong counts, volumes, weights, or units. Mixing up teaspoons and tablespoons, misreading a scale, or miscounting items leads to off ratios and predictable taste or texture problems.
+4. Temperature Error: A mistake in heat level or thermal state — the applied temperature, starting temperature, or thermal transition is wrong. Not preheating, using the wrong microwave power, overheating oil, or adding cold liquid when warm is required often causes burning, undercooking, or split emulsions.
+5. Timing Error: A mistake in duration – over- or under-doing a step or skipping required rests, proofs, or cooling periods. Overcooking, underblending, or cutting resting time short typically yields incorrect doneness or unstable textures.
+
+Do not repeat previously detected mistakes. Here are the feedbacks corresponding to previously detected mistakes:[prev_detected_mistakes]. Assume the recipe step is still in progress. Your task is to identify any mistake that’s already visible in the partially completed step. Do no penalize partially competed recipe steps. If you observe a mistake answer ‘YES’, else ‘No’. Your response MUST BEGIN WITH ‘YES’ or ‘NO’. In case you answer ‘YES’, please follow with a concise feedback to the user describing the mistake (i.e. YES. &lt;feedback&gt;.). Directly address the person.</pre></div>
+      <div class="prompt variant"><div class="prompt-head">Turn step 3: memory update <span class="prompt-note">ours, not from the paper</span></div>
+        <pre class="prompt-body">You are watching a live cooking stream but only ever see the most recent frames (each labeled with its time in seconds) plus a short written memory that you yourself wrote on the previous turn. Nothing else about earlier footage survives, so the memory must carry everything you will need later: what the person has done for the current recipe step, quantities and counts, the current state, and mistakes already pointed out.
+Current recipe step: [recipe_step].
+Feedback already given to the person in the last minute: [prev_detected_mistakes].
+Hard limits: observed_facts at most 8 entries, completed_steps at most 6, pending_commitments at most 3, uncertainties at most 3; every entry at most 15 words and prefixed with its time (e.g. "12s: ..."); current_state at most 40 words. Merge or drop older entries instead of exceeding these limits. Describe only what the frames support.
+Reply with ONE JSON object and nothing else, in exactly this shape:
+{"observed_facts": [...], "completed_steps": [...], "current_state": "...", "pending_commitments": [...], "uncertainties": [...]}</pre></div>
+      <div class="prompt variant"><div class="prompt-head">What precedes each prompt <span class="prompt-note">our wrapper</span></div>
+        <pre class="prompt-body">Most recent frames (8), oldest first:
+[frame at 2.2s] &lt;image&gt; … [frame at 9.2s] &lt;image&gt;
+Your memory of earlier footage (written by you on the previous turn):
+{"observed_facts": [...], "completed_steps": [...], "current_state": "...", "pending_commitments": [...], "uncertainties": [...]}</pre></div>
+      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Muse Glimmer, mistake check, GX010033 step 1 ("slice four half-inch thick pieces"), t = 9.2 s, raw channels</span></div>
+        <pre class="prompt-body"> to=self&lt;|message|&gt;Your memory of earlier footage...
+We need check if person is about to make or has already made a mistake. Step: get a baguette and slice four half-inch thick pieces from it.
+
+Frames: 5s hands together, 6s same, 7s hands move to baguette, 8s hands on baguette, 9s hands holding bag, 9.2s same.
+
+Person has not yet sliced. They are handling baguette still in paper bag. Mistake? Might be not removing baguette from bag before slicing. The instruction: get a baguette and slice... Might be okay to slice in bag? No. They are manipulating bag. Could be a preparation error: slicing with bag still on? At 7-9s they grasp bag, not baguette. Might be about to slice while still in paper. That would be technique error? Probably a mistake: baguette is still in paper bag, can't slice properly. That directly interferes.
+
+So answer YES. Feedback: baguette still in paper bag, need to remove.
+
+&lt;|eom|&gt;&lt;|start|&gt;assistant to=user&lt;|message|&gt;YES. You’re still holding the baguette inside its paper bag and haven’t taken the loaf out onto the cutting board. Slicing four half-inch pieces isn’t possible while it’s wrapped, so remove the baguette from the paper first and place it on the board before cutting.&lt;|eot|&gt;</pre></div>
+      <div class="prompt response"><div class="prompt-head">Model response <span class="prompt-note">Qwen3.8-27B, same call</span></div>
+        <pre class="prompt-body">No. The person is correctly preparing to slice the baguette, and no mistakes have been made yet.&lt;|im_end|&gt;</pre></div>
+      <p class="note">The only annotated mistake in this step is "The slices are too thick" at 25.6 s, 16.4 s after Muse's feedback, so the evaluator counts Muse's message as a false positive and Qwen's NO as correct here.</p>
+    </div>
+  </section>
+
+  <section class="exp-section"><h2 id="results">Quantitative Results</h2>
+    <p class="note"><span class="ours-key"></span>Highlighted: our method (8-frame sliding window + self-written memory). Other rows are reference results from the benchmark papers. <span class="dir" title="higher is better">↑</span> higher is better · <span class="dir" title="lower is better">↓</span> lower is better · <span class="dir-na">(count)</span> descriptive, neither.</p>
+    <h3>Ego-MC-Bench · 39 videos · paper protocol · official QICD evaluator</h3>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Setting</th><th>Model</th><th class="n">IC-Acc<span class="dir" title="higher is better">↑</span></th><th class="n">Prec.<span class="dir" title="higher is better">↑</span></th><th class="n">Rec.<span class="dir" title="higher is better">↑</span></th><th class="n">F1<span class="dir" title="higher is better">↑</span></th><th class="n">BERT<span class="dir" title="higher is better">↑</span></th><th class="n">ROUGE-L<span class="dir" title="higher is better">↑</span></th></tr></thead>
+      <tbody>
+        <tr class="ours"><td rowspan="5">Per-recipe step</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>44.4</b></td><td class="n">0.20</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.312</td><td class="n">0.184</td></tr>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">18.4</td><td class="n">0.28</td><td class="n"><b>0.30</b></td><td class="n"><b>0.29</b></td><td class="n">0.216</td><td class="n">0.130</td></tr>
+        <tr><td>Paper · Qwen3.5-27B</td><td class="n">45.5</td><td class="n">0.12</td><td class="n">0.17</td><td class="n">0.14</td><td class="n">0.206</td><td class="n">0.137</td></tr>
+        <tr><td>Paper · Gemini-3-Flash</td><td class="n">32.7</td><td class="n">0.18</td><td class="n">0.18</td><td class="n">0.18</td><td class="n">0.126</td><td class="n">0.102</td></tr>
+        <tr><td>Paper · Qwen3.5-2B fine-tuned (Ego-CoMist+)</td><td class="n">37.1</td><td class="n">0.39</td><td class="n">0.14</td><td class="n">0.20</td><td class="n">0.444</td><td class="n">0.272</td></tr>
+        <tr class="ours"><td rowspan="4">Full recipe</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>40.6</b></td><td class="n">0.18</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.337</td><td class="n">0.196</td></tr>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">16.1</td><td class="n">0.23</td><td class="n"><b>0.35</b></td><td class="n"><b>0.28</b></td><td class="n">0.198</td><td class="n">0.123</td></tr>
+        <tr><td>Paper · Qwen3.5-27B</td><td class="n">30.3</td><td class="n">0.05</td><td class="n">0.13</td><td class="n">0.07</td><td class="n">0.201</td><td class="n">0.136</td></tr>
+        <tr><td>Paper · Gemini-3-Flash</td><td class="n">10.6</td><td class="n">0.05</td><td class="n">0.20</td><td class="n">0.08</td><td class="n">0.097</td><td class="n">0.091</td></tr>
+      </tbody></table></div>
+    <div class="tblwrap"><table class="tbl ours-cols">
+      <thead><tr><th>Run detail</th><th class="n">Qwen · per-recipe</th><th class="n">Muse · per-recipe</th><th class="n">Qwen · full</th><th class="n">Muse · full</th></tr></thead>
+      <tbody>
+        <tr><td>Mistakes TP<span class="dir" title="higher is better">↑</span> / FP<span class="dir" title="lower is better">↓</span> / FN<span class="dir" title="lower is better">↓</span></td><td class="n">35 / 137 / 593</td><td class="n">192 / 500 / 440</td><td class="n">38 / 172 / 589</td><td class="n">229 / 756 / 420</td></tr>
+        <tr><td>"Success" / "Feedback" messages <span class="dir-na">(count)</span></td><td class="n">386 / 219</td><td class="n">158 / 815</td><td class="n">371 / 260</td><td class="n">160 / 1,163</td></tr>
+        <tr><td>Model calls <span class="dir-na">(count)</span></td><td class="n">13,160</td><td class="n">18,308</td><td class="n">14,410</td><td class="n">18,329</td></tr>
+        <tr><td>Unparsable YES/NO answers<span class="dir" title="lower is better">↓</span></td><td class="n">48</td><td class="n">0</td><td class="n">40</td><td class="n">0</td></tr>
+        <tr><td>Malformed memory updates (ours)<span class="dir" title="lower is better">↓</span></td><td class="n">0</td><td class="n">140</td><td class="n">0</td><td class="n">35</td></tr>
+      </tbody></table></div>
+    <p class="note">Paper rows are the zero-shot regular-interval results (Table 2) and the best fine-tuned model (Table 3). Neither of our models appears in the paper, so the comparison mixes model and wrapper differences. IC-Acc credits a mistake-free step only if the single output in it is "Success" within the window, so Muse's frequent feedback also costs it IC-Acc. The official code counts the "Success" that closes a step with mistakes as a missed mistake, which lowers recall for every model alike. BERT and ROUGE-L are computed on true positives only and are not comparable across models with different recall (paper App. F). An earlier Ego-MC run with our own protocol and a ported evaluator is superseded by these numbers.</p>
+  </section>
+
+  <section class="exp-section"><h2 id="visualization">Visualization</h2>
+    <p>Three videos picked at random with a fixed seed, not chosen for outcome. Each clip shows both models: segments around gold events, decision points and model utterances, with the media time stamped top-left. Clips come from the per-recipe-step paper-protocol run. 480p, no audio.</p>
+    <div class="legend"><span><i style="background:#ffffff"></i>task / question</span><span><i style="background:#51cf66"></i>gold</span><span><i style="background:#4dabf7"></i>Qwen3.8-27B</span><span><i style="background:#ffa94d"></i>Muse Glimmer 30B</span></div>
+    <div class="panel" id="panel-ego_mc">
+      <p class="panel-desc">Per-recipe-step run with the paper's protocol: a 5 s turn asks whether the step is complete, then whether there is a mistake; outputs are "Success: …" and "Feedback: …". Green = annotated feedback and successes.</p>
+      <div class="demo-grid">
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010063.jpg" src="assets/clips/ego_mc/ego_mc_GX010063.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010063 <span class="demo-sub">10 steps, 14 min</span><span class="demo-len">100 s of highlights · 2.0 MB</span></div>
+            <div class="demo-what">Gold: 12 mistake feedbacks, 10 successes</div>
+            <div class="demo-outcome">Qwen 1 feedback / 7 success · Muse 30 feedback / 3 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010064.jpg" src="assets/clips/ego_mc/ego_mc_GX010064.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010064 <span class="demo-sub">8 steps, 12 min</span><span class="demo-len">100 s of highlights · 2.1 MB</span></div>
+            <div class="demo-what">Gold: 10 mistake feedbacks, 8 successes</div>
+            <div class="demo-outcome">Qwen 1 feedback / 8 success · Muse 29 feedback / 1 success</div>
+          </figcaption>
+        </figure>
+        <figure class="demo">
+          <video controls preload="none" poster="assets/clips/ego_mc/ego_mc_GX010068.jpg" src="assets/clips/ego_mc/ego_mc_GX010068.mp4"></video>
+          <figcaption>
+            <div class="demo-title">GX010068 <span class="demo-sub">16 steps, 10 min</span><span class="demo-len">100 s of highlights · 1.8 MB</span></div>
+            <div class="demo-what">Gold: 11 mistake feedbacks, 16 successes</div>
+            <div class="demo-outcome">Qwen 0 feedback / 12 success · Muse 19 feedback / 5 success</div>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="exp-section"><h2 id="observations">Observations</h2>
+    <ul class="points">
+      <li><b>The two models sit at opposite operating points.</b> On Ego-MC, Muse flags mistakes often: recall 0.30–0.35 and precision 0.23–0.28, the highest F1 (0.28–0.29) of any model including the paper's, but it confirms few steps (about 160 "Success" messages vs Qwen's 380), so IC-Acc is 16–18. Qwen confirms steps as well as the paper's Qwen3.5-27B (IC-Acc 44.4 vs 45.5) but flags only about 6 % of mistakes.</li>
+      <li><b>The window holds up over long recipes.</b> The paper's models lose much of their score going from per-recipe to full recipe (e.g. Qwen3.5-27B IC-Acc 45.5 → 30.3); ours barely change (Qwen 44.4 → 40.6, Muse F1 0.29 → 0.28). A plausible reason is that a fixed 8-frame window never fills up with stale video, but this run does not isolate it.</li>
+    </ul>
+  </section>
+
+  <section class="exp-section"><h2 id="reproduction">Reproduction</h2>
+    <p>Code: <a href="https://github.com/jxb1st/glimmer_qwen_streaming_baseline-code">jxb1st/glimmer_qwen_streaming_baseline-code</a>, config <code>configs/full_klone.yaml</code>. On a SLURM cluster with the vLLM Muse Glimmer image:</p>
+    <pre class="prompt-body"># Ego-MC with the paper's protocol (official QICD evaluator, reference_code/qualcomm_interactive_cooking_eval @ a9f73f7)
+scripts/serve_and_run.sh muse30b 1 10 configs/egomc_paper_per_recipe.yaml   # same for qwen27b and egomc_paper_full_recipe.yaml
+python -m streaming_smoke score --config configs/egomc_paper_per_recipe.yaml</pre>
+  </section>
+
+  <footer class="page-footer">
+    <span><a href="https://jxb1st.github.io/interactive_model_panel/">← Back to Interactive Model Experiments</a></span>
+    <span><a href="https://jxb1st.github.io/">Home</a></span>
+  </footer>
+</div>
+<script src="page.js"></script>
+</body>
+</html>
