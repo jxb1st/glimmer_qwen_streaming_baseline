@@ -71,6 +71,11 @@
   .tbl b { font-weight: 600; }
   .tbl .st { font-size: 11.5px; color: var(--muted); }
   .tblwrap { overflow-x: auto; margin: 0 0 20px; }
+  /* our method (sliding window + self-written memory) */
+  .tbl tr.ours td:not([rowspan]), .tbl.ours-cols td.n, .tbl.ours-cols th.n { background: rgba(77,171,247,.12); }
+  .tbl tr.ours td:not([rowspan]):first-of-type, .tbl tr.ours td[rowspan] + td { box-shadow: inset 3px 0 0 var(--accent); }
+  .tbl.ours-cols th.n { color: var(--accent); }
+  .ours-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: rgba(77,171,247,.25); box-shadow: inset 3px 0 0 var(--accent); vertical-align: -1px; margin-right: 4px; }
   .note { font-size: 13.5px; color: var(--muted); max-width: 78ch; }
   .lat-fig { display: block; width: 100%; min-width: 560px; height: auto; }
 </style>
@@ -335,21 +340,22 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
   </section>
 
   <section class="exp-section"><h2 id="results">Quantitative Results</h2>
+    <p class="note"><span class="ours-key"></span>Highlighted: our method (8-frame sliding window + self-written memory). Other rows are reference results from the benchmark papers.</p>
     <h3>Ego-MC-Bench · 39 videos · paper protocol · official QICD evaluator</h3>
     <div class="tblwrap"><table class="tbl">
       <thead><tr><th>Setting</th><th>Model</th><th class="n">IC-Acc</th><th class="n">Prec.</th><th class="n">Rec.</th><th class="n">F1</th><th class="n">BERT</th><th class="n">ROUGE-L</th></tr></thead>
       <tbody>
-        <tr><td rowspan="5">Per-recipe step</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>44.4</b></td><td class="n">0.20</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.312</td><td class="n">0.184</td></tr>
-        <tr><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">18.4</td><td class="n">0.28</td><td class="n"><b>0.30</b></td><td class="n"><b>0.29</b></td><td class="n">0.216</td><td class="n">0.130</td></tr>
+        <tr class="ours"><td rowspan="5">Per-recipe step</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>44.4</b></td><td class="n">0.20</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.312</td><td class="n">0.184</td></tr>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">18.4</td><td class="n">0.28</td><td class="n"><b>0.30</b></td><td class="n"><b>0.29</b></td><td class="n">0.216</td><td class="n">0.130</td></tr>
         <tr><td>Paper · Qwen3.5-27B</td><td class="n">45.5</td><td class="n">0.12</td><td class="n">0.17</td><td class="n">0.14</td><td class="n">0.206</td><td class="n">0.137</td></tr>
         <tr><td>Paper · Gemini-3-Flash</td><td class="n">32.7</td><td class="n">0.18</td><td class="n">0.18</td><td class="n">0.18</td><td class="n">0.126</td><td class="n">0.102</td></tr>
         <tr><td>Paper · Qwen3.5-2B fine-tuned (Ego-CoMist+)</td><td class="n">37.1</td><td class="n">0.39</td><td class="n">0.14</td><td class="n">0.20</td><td class="n">0.444</td><td class="n">0.272</td></tr>
-        <tr><td rowspan="4">Full recipe</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>40.6</b></td><td class="n">0.18</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.337</td><td class="n">0.196</td></tr>
-        <tr><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">16.1</td><td class="n">0.23</td><td class="n"><b>0.35</b></td><td class="n"><b>0.28</b></td><td class="n">0.198</td><td class="n">0.123</td></tr>
+        <tr class="ours"><td rowspan="4">Full recipe</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>40.6</b></td><td class="n">0.18</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.337</td><td class="n">0.196</td></tr>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">16.1</td><td class="n">0.23</td><td class="n"><b>0.35</b></td><td class="n"><b>0.28</b></td><td class="n">0.198</td><td class="n">0.123</td></tr>
         <tr><td>Paper · Qwen3.5-27B</td><td class="n">30.3</td><td class="n">0.05</td><td class="n">0.13</td><td class="n">0.07</td><td class="n">0.201</td><td class="n">0.136</td></tr>
         <tr><td>Paper · Gemini-3-Flash</td><td class="n">10.6</td><td class="n">0.05</td><td class="n">0.20</td><td class="n">0.08</td><td class="n">0.097</td><td class="n">0.091</td></tr>
       </tbody></table></div>
-    <div class="tblwrap"><table class="tbl">
+    <div class="tblwrap"><table class="tbl ours-cols">
       <thead><tr><th>Run detail</th><th class="n">Qwen · per-recipe</th><th class="n">Muse · per-recipe</th><th class="n">Qwen · full</th><th class="n">Muse · full</th></tr></thead>
       <tbody>
         <tr><td>Mistakes TP / FP / FN</td><td class="n">35 / 137 / 593</td><td class="n">192 / 500 / 440</td><td class="n">38 / 172 / 589</td><td class="n">229 / 756 / 420</td></tr>
@@ -360,8 +366,8 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
       </tbody></table></div>
     <p class="note">Paper rows are the zero-shot regular-interval results (Table 2) and the best fine-tuned model (Table 3). Neither of our models appears in the paper, so the comparison mixes model and wrapper differences. IC-Acc credits a mistake-free step only if the single output in it is "Success" within the window, so Muse's frequent feedback also costs it IC-Acc. The official code counts the "Success" that closes a step with mistakes as a missed mistake, which lowers recall for every model alike. BERT and ROUGE-L are computed on true positives only and are not comparable across models with different recall (paper App. F). An earlier Ego-MC run with our own protocol and a ported evaluator is superseded by these numbers.</p>
     <h3>Wearable AI · validation split · official starter-kit protocol (all 2,100 sessions per model)</h3>
-    <div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Task · metric</th><th class="n">Qwen3.8-27B</th><th class="n">Muse Glimmer 30B</th><th>Status</th></tr></thead>
+    <div class="tblwrap"><table class="tbl ours-cols">
+      <thead><tr><th>Task · metric</th><th class="n">Ours · Qwen3.8-27B</th><th class="n">Ours · Muse Glimmer 30B</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td>EgoLongQA · MCQ accuracy, no time limit</td><td class="n"><b>0.659</b></td><td class="n">0.520</td><td class="st">official</td></tr>
         <tr><td>EgoLongQA · MCQ accuracy, 300 s/sample rule</td><td class="n"><b>0.411</b></td><td class="n">0.001</td><td class="st">official</td></tr>
@@ -378,8 +384,8 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
     <div class="tblwrap"><table class="tbl">
       <thead><tr><th>Model</th><th class="n">G-mean F1</th><th class="n">Interrupt / silent recall</th></tr></thead>
       <tbody>
-        <tr><td><b>Muse Glimmer 30B (ours, greedy)</b></td><td class="n"><b>0.533</b></td><td class="n">0.76 / 0.35</td></tr>
-        <tr><td><b>Qwen3.8-27B (ours, greedy)</b></td><td class="n">0.260</td><td class="n">0.06 / 0.98</td></tr>
+        <tr class="ours"><td><b>Ours · Muse Glimmer 30B (greedy)</b></td><td class="n"><b>0.533</b></td><td class="n">0.76 / 0.35</td></tr>
+        <tr class="ours"><td><b>Ours · Qwen3.8-27B (greedy)</b></td><td class="n">0.260</td><td class="n">0.06 / 0.98</td></tr>
         <tr><td>Claude Opus 4.6 (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
         <tr><td>Qwen3-VL-235B (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
         <tr><td>Llama 4 Maverick (paper)</td><td class="n">0.49</td><td class="n">–</td></tr>
@@ -392,7 +398,7 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
 
   <section class="exp-section"><h2 id="latency">Latency</h2>
     <p class="lead">Isolated study: one vLLM server on one H200, one stream at a time (no batching or queueing), the same 20 items for every configuration (5 per Wearable AI subtask and Ego-MC, first 30 calls each, Wearable AI prompts). The server's first, cold call is excluded. "First answer token" is when the user-visible answer starts: after Muse's <code>to=self</code> reasoning, after Qwen's <code>&lt;/think&gt;</code>.</p>
-    <div class="tblwrap"><table class="tbl">
+    <div class="tblwrap"><table class="tbl ours-cols">
       <thead><tr><th>Per call</th><th class="n">Qwen3.8-27B · thinking off</th><th class="n">Qwen3.8-27B · thinking on</th><th class="n">Muse Glimmer 30B · reasoning low</th></tr></thead>
       <tbody>
         <tr><td>End-to-end latency p50 / p90</td><td class="n"><b>3.52 / 4.37 s</b></td><td class="n">15.20 / 25.02 s</td><td class="n">6.72 / 8.80 s</td></tr>
