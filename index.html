@@ -328,21 +328,34 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
         <tr><td>Malformed memory updates (ours)</td><td class="n">0</td><td class="n">140</td><td class="n">0</td><td class="n">35</td></tr>
       </tbody></table></div>
     <p class="note">Paper rows are the zero-shot regular-interval results (Table 2) and the best fine-tuned model (Table 3). Neither of our models appears in the paper, so the comparison mixes model and wrapper differences. IC-Acc credits a mistake-free step only if the single output in it is "Success" within the window, so Muse's frequent feedback also costs it IC-Acc. The official code counts the "Success" that closes a step with mistakes as a missed mistake, which lowers recall for every model alike. BERT and ROUGE-L are computed on true positives only and are not comparable across models with different recall (paper App. F). An earlier Ego-MC run with our own protocol and a ported evaluator is superseded by these numbers.</p>
-    <h3>Wearable AI · validation split · bundled starter-kit evaluator</h3>
+    <h3>Wearable AI · validation split · official starter-kit protocol (all 2,100 sessions per model)</h3>
     <div class="tblwrap"><table class="tbl">
       <thead><tr><th>Task · metric</th><th class="n">Qwen3.8-27B</th><th class="n">Muse Glimmer 30B</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>EgoLongQA · MCQ accuracy, n = 700</td><td class="n"><b>0.644</b> (451)</td><td class="n">0.307 (215)</td><td class="st">official</td></tr>
-        <tr><td>EgoLongQA · questions answered with a letter</td><td class="n">700 / 700</td><td class="n">413 / 700</td><td class="st">run</td></tr>
-        <tr><td>EgoLongQA · accuracy on answered questions</td><td class="n">0.644</td><td class="n">0.521</td><td class="st">derived</td></tr>
-        <tr><td>EgoConv · BLEU-4, n = 4,176 turns</td><td class="n"><b>0.088</b></td><td class="n">0.051</td><td class="st">official, BLEU only</td></tr>
-        <tr><td>EgoConv · LLM-judge score</td><td class="n">–</td><td class="n">–</td><td class="st">blocked (no judge)</td></tr>
-        <tr><td>EgoProactive · macro F1 / geometric-mean F1, n = 9,935 chunks</td><td class="n">0.508 / 0.485</td><td class="n"><b>0.537 / 0.536</b></td><td class="st">official</td></tr>
-        <tr><td>EgoProactive · interrupt precision / recall</td><td class="n">0.561 / 0.799</td><td class="n">0.573 / 0.569</td><td class="st">official</td></tr>
-        <tr><td>EgoProactive · silent precision / recall</td><td class="n">0.533 / 0.268</td><td class="n">0.501 / 0.504</td><td class="st">official</td></tr>
-        <tr><td>Valid JSON outputs</td><td class="n">99.995 % of 134,051</td><td class="n">99.91 % of 134,051</td><td class="st">run</td></tr>
+        <tr><td>EgoLongQA · MCQ accuracy, no time limit</td><td class="n"><b>0.659</b></td><td class="n">0.520</td><td class="st">official</td></tr>
+        <tr><td>EgoLongQA · MCQ accuracy, 300 s/sample rule</td><td class="n"><b>0.411</b></td><td class="n">0.001</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · BLEU-4, no time limit</td><td class="n"><b>0.063</b></td><td class="n">0.048</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · LLM judge (Llama-4-Maverick)</td><td class="n">–</td><td class="n">–</td><td class="st">pending (judge jobs queued)</td></tr>
+        <tr><td>EgoProactive · macro F1 / G-mean F1, no time limit</td><td class="n"><b>0.487 / 0.486</b></td><td class="n">0.364 / 0.150</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · interrupt / silent recall</td><td class="n">0.40 / 0.59</td><td class="n">0.98 / 0.02</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · macro F1, 300 s/sample rule</td><td class="n"><b>0.243</b></td><td class="n">0.014</td><td class="st">official</td></tr>
+        <tr><td>Samples over 300 s (LongQA / Conv / Proactive, of 700 each)</td><td class="n">256 / 275 / 280</td><td class="n">699 / 487 / 667</td><td class="st">isolated-latency estimate</td></tr>
       </tbody></table></div>
-    <p class="note">Muse leaves 287 EgoLongQA questions without a letter (188 silent, 77 empty answers, 21 "no evidence"-style replies, 1 unparsable output); the official scorer counts them as wrong. Judge-based metrics were not run because no judge model was configured.</p>
+    <p class="note">Official prompts, decision points and scorers from the starter kit; our 8-frame window plus self-written memory is the only change; 4,096-token output budget. Over-time samples are scored as empty under the 300 s rule. Qwen's 95 failed EgoConv turns are empty answers (first token was end-of-turn). Val leaderboard reference (large division): LongQA best 0.96, zero-shot Qwen2.5-VL-7B 0.59–0.69; EgoConv judge best 0.59.</p>
+    <h3>EgoProactive · Pro2Bench paper protocol (arXiv 2606.04970)</h3>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Model</th><th class="n">G-mean F1</th><th class="n">Interrupt / silent recall</th></tr></thead>
+      <tbody>
+        <tr><td><b>Muse Glimmer 30B (ours, sliding window, greedy)</b></td><td class="n"><b>0.533</b></td><td class="n">0.76 / 0.35</td></tr>
+        <tr><td><b>Qwen3.8-27B (ours, sliding window)</b></td><td class="n">0.260</td><td class="n">0.06 / 0.98</td></tr>
+        <tr><td>Claude (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
+        <tr><td>Qwen3-VL-235B (paper)</td><td class="n">0.57</td><td class="n">–</td></tr>
+        <tr><td>Llama 4 Maverick (paper)</td><td class="n">0.49</td><td class="n">–</td></tr>
+        <tr><td>Gemini 3.1 Pro (paper)</td><td class="n">0.46</td><td class="n">–</td></tr>
+        <tr><td>Qwen3.6-VL-27B (paper)</td><td class="n">0.28</td><td class="n">–</td></tr>
+        <tr><td>GPT-5.2 (paper)</td><td class="n">0.00</td><td class="n">–</td></tr>
+      </tbody></table></div>
+    <p class="note">Paper baselines are the best of 3 prompt variants and see full context; the fine-tuned PWR model reaches 0.68. PQS (needs an LLM judge) is not computed; judge inputs are exported.</p>
   </section>
 
   <section class="exp-section"><h2 id="latency">Latency</h2>
