@@ -75,6 +75,8 @@
   .tbl tr.ours td:not([rowspan]), .tbl.ours-cols td.n, .tbl.ours-cols th.n { background: rgba(77,171,247,.12); }
   .tbl tr.ours td:not([rowspan]):first-of-type, .tbl tr.ours td[rowspan] + td { box-shadow: inset 3px 0 0 var(--accent); }
   .tbl.ours-cols th.n { color: var(--accent); }
+  .dir { color: var(--accent); font-weight: 700; margin-left: 3px; }
+  .dir-na { color: var(--muted); font-size: 11.5px; margin-left: 3px; }
   .ours-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: rgba(77,171,247,.25); box-shadow: inset 3px 0 0 var(--accent); vertical-align: -1px; margin-right: 4px; }
   .note { font-size: 13.5px; color: var(--muted); max-width: 78ch; }
   .lat-fig { display: block; width: 100%; min-width: 560px; height: auto; }
@@ -340,10 +342,10 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
   </section>
 
   <section class="exp-section"><h2 id="results">Quantitative Results</h2>
-    <p class="note"><span class="ours-key"></span>Highlighted: our method (8-frame sliding window + self-written memory). Other rows are reference results from the benchmark papers.</p>
+    <p class="note"><span class="ours-key"></span>Highlighted: our method (8-frame sliding window + self-written memory). Other rows are reference results from the benchmark papers. <span class="dir" title="higher is better">↑</span> higher is better · <span class="dir" title="lower is better">↓</span> lower is better · <span class="dir-na">(count)</span> descriptive, neither.</p>
     <h3>Ego-MC-Bench · 39 videos · paper protocol · official QICD evaluator</h3>
     <div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Setting</th><th>Model</th><th class="n">IC-Acc</th><th class="n">Prec.</th><th class="n">Rec.</th><th class="n">F1</th><th class="n">BERT</th><th class="n">ROUGE-L</th></tr></thead>
+      <thead><tr><th>Setting</th><th>Model</th><th class="n">IC-Acc<span class="dir" title="higher is better">↑</span></th><th class="n">Prec.<span class="dir" title="higher is better">↑</span></th><th class="n">Rec.<span class="dir" title="higher is better">↑</span></th><th class="n">F1<span class="dir" title="higher is better">↑</span></th><th class="n">BERT<span class="dir" title="higher is better">↑</span></th><th class="n">ROUGE-L<span class="dir" title="higher is better">↑</span></th></tr></thead>
       <tbody>
         <tr class="ours"><td rowspan="5">Per-recipe step</td><td><b>Ours · Qwen3.8-27B</b></td><td class="n"><b>44.4</b></td><td class="n">0.20</td><td class="n">0.06</td><td class="n">0.09</td><td class="n">0.312</td><td class="n">0.184</td></tr>
         <tr class="ours"><td><b>Ours · Muse Glimmer 30B</b></td><td class="n">18.4</td><td class="n">0.28</td><td class="n"><b>0.30</b></td><td class="n"><b>0.29</b></td><td class="n">0.216</td><td class="n">0.130</td></tr>
@@ -358,31 +360,31 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
     <div class="tblwrap"><table class="tbl ours-cols">
       <thead><tr><th>Run detail</th><th class="n">Qwen · per-recipe</th><th class="n">Muse · per-recipe</th><th class="n">Qwen · full</th><th class="n">Muse · full</th></tr></thead>
       <tbody>
-        <tr><td>Mistakes TP / FP / FN</td><td class="n">35 / 137 / 593</td><td class="n">192 / 500 / 440</td><td class="n">38 / 172 / 589</td><td class="n">229 / 756 / 420</td></tr>
-        <tr><td>"Success" / "Feedback" messages</td><td class="n">386 / 219</td><td class="n">158 / 815</td><td class="n">371 / 260</td><td class="n">160 / 1,163</td></tr>
-        <tr><td>Model calls</td><td class="n">13,160</td><td class="n">18,308</td><td class="n">14,410</td><td class="n">18,329</td></tr>
-        <tr><td>Unparsable YES/NO answers</td><td class="n">48</td><td class="n">0</td><td class="n">40</td><td class="n">0</td></tr>
-        <tr><td>Malformed memory updates (ours)</td><td class="n">0</td><td class="n">140</td><td class="n">0</td><td class="n">35</td></tr>
+        <tr><td>Mistakes TP<span class="dir" title="higher is better">↑</span> / FP<span class="dir" title="lower is better">↓</span> / FN<span class="dir" title="lower is better">↓</span></td><td class="n">35 / 137 / 593</td><td class="n">192 / 500 / 440</td><td class="n">38 / 172 / 589</td><td class="n">229 / 756 / 420</td></tr>
+        <tr><td>"Success" / "Feedback" messages <span class="dir-na">(count)</span></td><td class="n">386 / 219</td><td class="n">158 / 815</td><td class="n">371 / 260</td><td class="n">160 / 1,163</td></tr>
+        <tr><td>Model calls <span class="dir-na">(count)</span></td><td class="n">13,160</td><td class="n">18,308</td><td class="n">14,410</td><td class="n">18,329</td></tr>
+        <tr><td>Unparsable YES/NO answers<span class="dir" title="lower is better">↓</span></td><td class="n">48</td><td class="n">0</td><td class="n">40</td><td class="n">0</td></tr>
+        <tr><td>Malformed memory updates (ours)<span class="dir" title="lower is better">↓</span></td><td class="n">0</td><td class="n">140</td><td class="n">0</td><td class="n">35</td></tr>
       </tbody></table></div>
     <p class="note">Paper rows are the zero-shot regular-interval results (Table 2) and the best fine-tuned model (Table 3). Neither of our models appears in the paper, so the comparison mixes model and wrapper differences. IC-Acc credits a mistake-free step only if the single output in it is "Success" within the window, so Muse's frequent feedback also costs it IC-Acc. The official code counts the "Success" that closes a step with mistakes as a missed mistake, which lowers recall for every model alike. BERT and ROUGE-L are computed on true positives only and are not comparable across models with different recall (paper App. F). An earlier Ego-MC run with our own protocol and a ported evaluator is superseded by these numbers.</p>
     <h3>Wearable AI · validation split · official starter-kit protocol (all 2,100 sessions per model)</h3>
     <div class="tblwrap"><table class="tbl ours-cols">
       <thead><tr><th>Task · metric</th><th class="n">Ours · Qwen3.8-27B</th><th class="n">Ours · Muse Glimmer 30B</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>EgoLongQA · MCQ accuracy, no time limit</td><td class="n"><b>0.659</b></td><td class="n">0.520</td><td class="st">official</td></tr>
-        <tr><td>EgoLongQA · MCQ accuracy, 300 s/sample rule</td><td class="n"><b>0.411</b></td><td class="n">0.001</td><td class="st">official</td></tr>
-        <tr><td>EgoConv · BLEU-4, no time limit</td><td class="n"><b>0.063</b></td><td class="n">0.048</td><td class="st">official</td></tr>
-        <tr><td>EgoConv · BLEU-4, 300 s/sample rule</td><td class="n"><b>0.040</b></td><td class="n">0.015</td><td class="st">official</td></tr>
-        <tr><td>EgoConv · LLM judge (Llama-4-Maverick)</td><td class="n">–</td><td class="n">–</td><td class="st">pending (judge jobs queued)</td></tr>
-        <tr><td>EgoProactive · macro F1 / G-mean F1, no time limit</td><td class="n"><b>0.487 / 0.486</b></td><td class="n">0.364 / 0.150</td><td class="st">official</td></tr>
-        <tr><td>EgoProactive · interrupt / silent recall</td><td class="n">0.40 / 0.59</td><td class="n">0.98 / 0.02</td><td class="st">official</td></tr>
-        <tr><td>EgoProactive · macro F1, 300 s/sample rule</td><td class="n"><b>0.243</b></td><td class="n">0.014</td><td class="st">official</td></tr>
-        <tr><td>Samples over 300 s (LongQA / Conv / Proactive, of 700 each)</td><td class="n">256 / 275 / 280</td><td class="n">699 / 487 / 667</td><td class="st">isolated-latency estimate</td></tr>
+        <tr><td>EgoLongQA · MCQ accuracy<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.659</b></td><td class="n">0.520</td><td class="st">official</td></tr>
+        <tr><td>EgoLongQA · MCQ accuracy<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.411</b></td><td class="n">0.001</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · BLEU-4<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.063</b></td><td class="n">0.048</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · BLEU-4<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.040</b></td><td class="n">0.015</td><td class="st">official</td></tr>
+        <tr><td>EgoConv · LLM judge<span class="dir" title="higher is better">↑</span> (Llama-4-Maverick)</td><td class="n">–</td><td class="n">–</td><td class="st">pending (judge jobs queued)</td></tr>
+        <tr><td>EgoProactive · macro F1<span class="dir" title="higher is better">↑</span> / G-mean F1<span class="dir" title="higher is better">↑</span>, no time limit</td><td class="n"><b>0.487 / 0.486</b></td><td class="n">0.364 / 0.150</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · interrupt / silent recall<span class="dir" title="higher is better">↑</span></td><td class="n">0.40 / 0.59</td><td class="n">0.98 / 0.02</td><td class="st">official</td></tr>
+        <tr><td>EgoProactive · macro F1<span class="dir" title="higher is better">↑</span>, 300 s/sample rule</td><td class="n"><b>0.243</b></td><td class="n">0.014</td><td class="st">official</td></tr>
+        <tr><td>Samples over 300 s<span class="dir" title="lower is better">↓</span> (LongQA / Conv / Proactive, of 700 each)</td><td class="n">256 / 275 / 280</td><td class="n">699 / 487 / 667</td><td class="st">isolated-latency estimate</td></tr>
       </tbody></table></div>
     <p class="note">Official prompts, decision points and scorers from the starter kit; our 8-frame window plus self-written memory is the only change; 4,096-token output budget. Over-time samples are scored as empty under the 300 s rule. Qwen's 95 failed EgoConv turns are empty answers (first token was end-of-turn). Val leaderboard reference (large division): LongQA best 0.96, zero-shot Qwen2.5-VL-7B 0.59–0.69; EgoConv judge best 0.59.</p>
     <h3>EgoProactive · Pro2Bench paper protocol (arXiv 2606.04970)</h3>
     <div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Model</th><th class="n">G-mean F1</th><th class="n">Interrupt / silent recall</th></tr></thead>
+      <thead><tr><th>Model</th><th class="n">G-mean F1<span class="dir" title="higher is better">↑</span></th><th class="n">Interrupt / silent recall<span class="dir" title="higher is better">↑</span></th></tr></thead>
       <tbody>
         <tr class="ours"><td><b>Ours · Muse Glimmer 30B (greedy)</b></td><td class="n"><b>0.533</b></td><td class="n">0.76 / 0.35</td></tr>
         <tr class="ours"><td><b>Ours · Qwen3.8-27B (greedy)</b></td><td class="n">0.260</td><td class="n">0.06 / 0.98</td></tr>
@@ -398,16 +400,17 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
 
   <section class="exp-section"><h2 id="latency">Latency</h2>
     <p class="lead">Isolated study: one vLLM server on one H200, one stream at a time (no batching or queueing), the same 20 items for every configuration (5 per Wearable AI subtask and Ego-MC, first 30 calls each, Wearable AI prompts). The server's first, cold call is excluded. "First answer token" is when the user-visible answer starts: after Muse's <code>to=self</code> reasoning, after Qwen's <code>&lt;/think&gt;</code>.</p>
+    <p class="note"><span class="dir" title="higher is better">↑</span> higher is better · <span class="dir" title="lower is better">↓</span> lower is better · <span class="dir-na">(count)</span> descriptive, neither.</p>
     <div class="tblwrap"><table class="tbl ours-cols">
       <thead><tr><th>Per call</th><th class="n">Qwen3.8-27B · thinking off</th><th class="n">Qwen3.8-27B · thinking on</th><th class="n">Muse Glimmer 30B · reasoning low</th></tr></thead>
       <tbody>
-        <tr><td>End-to-end latency p50 / p90</td><td class="n"><b>3.52 / 4.37 s</b></td><td class="n">15.20 / 25.02 s</td><td class="n">6.72 / 8.80 s</td></tr>
-        <tr><td>First answer token p50 / p90</td><td class="n"><b>0.44 / 0.50 s</b></td><td class="n">10.94 / 20.68 s</td><td class="n">3.71 / 5.68 s</td></tr>
-        <tr><td>First token of any kind p50</td><td class="n">0.435 s</td><td class="n">–</td><td class="n">0.489 s</td></tr>
-        <tr><td>Reasoning tokens before the answer (median)</td><td class="n">0</td><td class="n">699</td><td class="n">202</td></tr>
-        <tr><td>Output tokens (median)</td><td class="n">201</td><td class="n">977</td><td class="n">391</td></tr>
-        <tr><td>Decode speed (median)</td><td class="n">64.7 tok/s</td><td class="n">–</td><td class="n">62.5 tok/s</td></tr>
-        <tr><td>Valid outputs</td><td class="n">599 / 599</td><td class="n">577 / 585 (1 hit the 4,096-token cap)</td><td class="n">594 / 598</td></tr>
+        <tr><td>End-to-end latency<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n"><b>3.52 / 4.37 s</b></td><td class="n">15.20 / 25.02 s</td><td class="n">6.72 / 8.80 s</td></tr>
+        <tr><td>First answer token<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n"><b>0.44 / 0.50 s</b></td><td class="n">10.94 / 20.68 s</td><td class="n">3.71 / 5.68 s</td></tr>
+        <tr><td>First token of any kind<span class="dir" title="lower is better">↓</span> p50</td><td class="n">0.435 s</td><td class="n">–</td><td class="n">0.489 s</td></tr>
+        <tr><td>Reasoning tokens before the answer (median) <span class="dir-na">(count)</span></td><td class="n">0</td><td class="n">699</td><td class="n">202</td></tr>
+        <tr><td>Output tokens (median) <span class="dir-na">(count)</span></td><td class="n">201</td><td class="n">977</td><td class="n">391</td></tr>
+        <tr><td>Decode speed<span class="dir" title="higher is better">↑</span> (median)</td><td class="n">64.7 tok/s</td><td class="n">–</td><td class="n">62.5 tok/s</td></tr>
+        <tr><td>Valid outputs<span class="dir" title="higher is better">↑</span></td><td class="n">599 / 599</td><td class="n">577 / 585 (1 hit the 4,096-token cap)</td><td class="n">594 / 598</td></tr>
       </tbody></table></div>
     <figure class="figwrap"><svg class="lat-fig" viewBox="0 0 760 250" role="img" aria-label="Median per-call latency by subtask, Qwen thinking off vs Muse: Qwen 2.8 to 3.9 seconds, Muse 6.3 to 7.2 seconds">
       <g font-size="12" fill="#8a949e">
@@ -423,7 +426,7 @@ So answer YES. Feedback: baguette still in paper bag, need to remove.
         <text x="355" y="38">2.76</text><text x="606" y="54">6.35</text><text x="429" y="88">3.81</text><text x="644" y="104">6.89</text>
         <text x="406" y="138">3.49</text><text x="639" y="154">6.81</text><text x="434" y="188">3.88</text><text x="669" y="204">7.24</text>
       </g>
-      <g font-size="12" fill="#8a949e"><rect x="560" y="0" width="10" height="10" fill="#4dabf7"/><text x="576" y="9">Qwen3.8-27B</text><rect x="660" y="0" width="10" height="10" fill="#ffa94d"/><text x="676" y="9">Muse</text></g>
+      <g font-size="12" fill="#8a949e"><text x="10" y="9">Median latency per call (s) · ↓ lower is better</text><rect x="560" y="0" width="10" height="10" fill="#4dabf7"/><text x="576" y="9">Qwen3.8-27B</text><rect x="660" y="0" width="10" height="10" fill="#ffa94d"/><text x="676" y="9">Muse</text></g>
     </svg></figure>
     <ul class="points">
       <li><b>Reasoning, not the model, sets the latency.</b> Prefill and decode speed are almost the same for both models. Muse always reasons in its <code>to=self</code> channel (its template has no off switch), so against non-reasoning Qwen it is 1.9× slower end to end and its answer starts about 3.3 s later. With Qwen's thinking turned on, Qwen reasons 3.5× longer than Muse (699 vs 202 tokens) and its answer starts about 3× later (10.9 s vs 3.7 s).</li>
