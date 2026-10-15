@@ -580,7 +580,8 @@ sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # E
     });
     toc.appendChild(ol);
   }
-  // Every section except the results starts collapsed; its heading toggles it. Without JavaScript all sections stay open.
+  var OPEN = ["results", "latency", "visualization"];   // result sections start open
+  // Every other section starts collapsed; its heading toggles it. Without JavaScript all sections stay open.
   function setOpen(h, open) {
     var sec = h.parentNode, body = sec.querySelector(".sec-body");
     body.hidden = !open; sec.classList.toggle("collapsed", !open); h.setAttribute("aria-expanded", String(open));
@@ -596,7 +597,7 @@ sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # E
     h.insertBefore(chev, h.firstChild);
     h.classList.add("sec-toggle"); h.setAttribute("role", "button"); h.tabIndex = 0;
     h.setAttribute("aria-controls", body.id);
-    setOpen(h, h.id === "results");   // only the results start open
+    setOpen(h, OPEN.indexOf(h.id) >= 0);
     h.addEventListener("click", function () { setOpen(h, h.getAttribute("aria-expanded") !== "true"); });
     h.addEventListener("keydown", function (e) {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); h.click(); }
