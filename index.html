@@ -41,6 +41,7 @@
   .exp-section h2.sec-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
   .sec-toggle .chev { font-size: 13px; color: var(--accent); }
   .sec-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .sec-body[hidden] { display: none !important; }
   .exp-section.collapsed { margin-bottom: 20px; }
   .exp-section.collapsed h2 { margin-bottom: 0; }
   .prompt-body { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; line-height: 1.6; }
@@ -579,7 +580,7 @@ sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # E
     });
     toc.appendChild(ol);
   }
-  // Every section starts collapsed; its heading toggles it. Without JavaScript all sections stay open.
+  // Every section except the results starts collapsed; its heading toggles it. Without JavaScript all sections stay open.
   function setOpen(h, open) {
     var sec = h.parentNode, body = sec.querySelector(".sec-body");
     body.hidden = !open; sec.classList.toggle("collapsed", !open); h.setAttribute("aria-expanded", String(open));
@@ -587,7 +588,7 @@ sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # E
   }
   Array.prototype.forEach.call(heads, function (h) {
     var body = document.createElement("div");
-    body.className = "sec-body"; body.id = h.id + "-body";
+    body.className = "sec-body"; body.id = "sec-" + h.id;
     while (h.nextSibling) body.appendChild(h.nextSibling);
     h.parentNode.appendChild(body);
     var chev = document.createElement("span");
@@ -595,7 +596,7 @@ sbatch --export=ALL,MODEL=muse30b submit_jobs/glimmer_qwen_wai_judge.slurm   # E
     h.insertBefore(chev, h.firstChild);
     h.classList.add("sec-toggle"); h.setAttribute("role", "button"); h.tabIndex = 0;
     h.setAttribute("aria-controls", body.id);
-    setOpen(h, false);
+    setOpen(h, h.id === "results");   // only the results start open
     h.addEventListener("click", function () { setOpen(h, h.getAttribute("aria-expanded") !== "true"); });
     h.addEventListener("keydown", function (e) {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); h.click(); }
