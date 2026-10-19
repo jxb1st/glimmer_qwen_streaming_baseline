@@ -18,12 +18,12 @@
         <h1>Sliding-Window Streaming VLMs: Full Evaluation on Ego-MC-Bench and Wearable AI</h1>
         <div class="exp-meta">
           <time datetime="2026-10-12">Oct 12, 2026</time>
-          <span class="status completed">completed</span>
+          <span class="status in-progress">in progress</span>
           <span class="tag">video</span><span class="tag">streaming</span><span class="tag">interaction</span><span class="tag">recurrent memory</span><span class="tag">latency</span>
         </div>
       </div>
     </div>
-    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B run as causal online assistants (an 8-frame sliding window plus a memory they write themselves, replayed in media time) on the Wearable AI validation split (all 2,100 sessions, with the official starter-kit protocol and, for EgoProactive, also the Pro2Bench paper protocol) and on Ego-MC-Bench (39 videos) under the Ego-MC-Bench paper's own evaluation protocol and official evaluator. Only the model's view (window plus memory) differs from each benchmark's protocol. An isolated latency study compares both models with and without reasoning.</p>
+    <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B run as causal online assistants (an 8-frame sliding window plus a memory they write themselves, replayed in media time) on the Wearable AI validation split (all 2,100 sessions, with the official starter-kit protocol and, for EgoProactive, also the Pro2Bench paper protocol) and on Ego-MC-Bench (39 videos) under the Ego-MC-Bench paper's own evaluation protocol and official evaluator. Only the model's view (window plus memory) differs from each benchmark's protocol. An isolated latency study compares both models with and without reasoning, and Muse on its native serving stack (SGLang + DFlash speculative decoding: 2.3× faster decoding, 3.1 s per call); a Muse accuracy rerun on that stack is in progress.</p>
   </header>
 
   <nav class="pagenav" aria-label="Pages"><a class="tab active" href="index.html" aria-current="page">Overview</a><a class="tab" href="ego_mc.html">Ego-MC-Bench</a><a class="tab" href="wearable_ai.html">Wearable AI</a></nav>
@@ -68,7 +68,7 @@
     </ul>
     <h3>Serving and compute</h3>
     <ul class="points">
-      <li><b>Backend.</b> vLLM (the official Muse Glimmer image for both models), one server per GPU, 92 % of GPU memory for weights and KV cache. Calls inside one item stay sequential (each depends on the previous memory); throughput comes from running 40–64 items at once per GPU.</li>
+      <li><b>Backend.</b> vLLM (the official Muse Glimmer image for both models), one server per GPU, 92 % of GPU memory for weights and KV cache. Muse's native serving stack (SGLang + DFlash speculative decoding) is measured in the <a href="#native-serving">latency study</a>. Calls inside one item stay sequential (each depends on the previous memory); throughput comes from running 40–64 items at once per GPU.</li>
       <li><b>Hardware.</b> UW Hyak Klone, mostly preemptible H200 (141 GB) plus A100 80 GB. Items are pulled from a shared queue, so preempted jobs lose no work.</li>
       <li><b>Differences from the earlier smoke test.</b> All items instead of 5 per benchmark, only these two benchmarks, vLLM instead of transformers, Muse sampled as its documentation requires, and both benchmarks rerun with their official protocols (Ego-MC paper protocol and QICD evaluator; Wearable AI starter kit and Pro2Bench).</li>
     </ul>
@@ -126,7 +126,7 @@
   <text x="502" y="130" text-anchor="middle" fill="#e6e9ed" font-size="13" font-weight="600">VLM, one request</text>
   <text x="502" y="152" text-anchor="middle" fill="#b197fc" font-size="11">Qwen3.8-27B (thinking off)</text>
   <text x="502" y="170" text-anchor="middle" fill="#b197fc" font-size="11">Muse Glimmer 30B (reasoning low)</text>
-  <text x="502" y="190" text-anchor="middle" fill="#8a949e" font-size="10">≤ 4,096 output tokens</text><text x="502" y="203" text-anchor="middle" fill="#8a949e" font-size="10">3.5 s (Qwen) / 6.8 s (Muse) per call</text>
+  <text x="502" y="190" text-anchor="middle" fill="#8a949e" font-size="10">≤ 4,096 output tokens</text><text x="502" y="203" text-anchor="middle" fill="#8a949e" font-size="10">3.5 s (Qwen) / 6.7 s (Muse; 3.1 s with DFlash) per call</text>
   <path d="M608,156 H630" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar2)"/>
   <!-- output -->
   <rect x="632" y="96" width="210" height="120" rx="8" fill="#1a2129" stroke="#2d3640"/>
@@ -157,49 +157,65 @@
       <li><b>Resumable.</b> State is checkpointed after every call; preempted GPU jobs are requeued and any worker resumes an abandoned item from its last completed call.</li>
     </ul>
   <section class="exp-section"><h2 id="latency">Latency</h2>
-    <p class="lead">Isolated study: one vLLM server on one H200, one stream at a time (no batching or queueing), the same 20 items for every configuration (5 per Wearable AI subtask and Ego-MC, first 30 calls each, Wearable AI prompts). The server's first, cold call is excluded. "First answer token" is when the user-visible answer starts: after Muse's <code>to=self</code> reasoning, after Qwen's <code>&lt;/think&gt;</code>.</p>
+    <p class="lead">Isolated study: one server on one H200, one stream at a time (no batching or queueing), the same 20 items for every configuration (5 per Wearable AI subtask and Ego-MC, first 30 calls each, Wearable AI prompts). The server's first, cold call is excluded. "First answer token" is when the user-visible answer starts: after Muse's <code>to=self</code> reasoning, after Qwen's <code>&lt;/think&gt;</code>. Muse is shown twice: on the plain vLLM server used for every accuracy run so far, and on its native serving stack, SGLang with DFlash speculative decoding and Meta's reasoning parser (see <a href="#native-serving">below</a>).</p>
     <p class="note"><span class="dir" title="higher is better">↑</span> higher is better · <span class="dir" title="lower is better">↓</span> lower is better · <span class="dir-na">(count)</span> descriptive, neither.</p>
     <div class="tblwrap"><table class="tbl ours-cols">
-      <thead><tr><th>Per call</th><th class="n">Qwen3.8-27B · thinking off</th><th class="n">Qwen3.8-27B · thinking on</th><th class="n">Muse Glimmer 30B · reasoning low</th></tr></thead>
+      <thead><tr><th>Per call</th><th class="n">Qwen3.8-27B · thinking off</th><th class="n">Qwen3.8-27B · thinking on</th><th class="n">Muse Glimmer 30B · plain vLLM</th><th class="n">Muse Glimmer 30B · native (SGLang + DFlash)</th></tr></thead>
       <tbody>
-        <tr><td>End-to-end latency<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n"><b>3.52 / 4.37 s</b></td><td class="n">15.20 / 25.02 s</td><td class="n">6.72 / 8.80 s</td></tr>
-        <tr><td>First answer token<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n"><b>0.44 / 0.50 s</b></td><td class="n">10.94 / 20.68 s</td><td class="n">3.71 / 5.68 s</td></tr>
-        <tr><td>First token of any kind<span class="dir" title="lower is better">↓</span> p50</td><td class="n">0.435 s</td><td class="n">–</td><td class="n">0.489 s</td></tr>
-        <tr><td>Reasoning tokens before the answer (median) <span class="dir-na">(count)</span></td><td class="n">0</td><td class="n">699</td><td class="n">202</td></tr>
-        <tr><td>Output tokens (median) <span class="dir-na">(count)</span></td><td class="n">201</td><td class="n">977</td><td class="n">391</td></tr>
-        <tr><td>Decode speed<span class="dir" title="higher is better">↑</span> (median)</td><td class="n">64.7 tok/s</td><td class="n">–</td><td class="n">62.5 tok/s</td></tr>
-        <tr><td>Valid outputs<span class="dir" title="higher is better">↑</span></td><td class="n">599 / 599</td><td class="n">577 / 585 (1 hit the 4,096-token cap)</td><td class="n">594 / 598</td></tr>
+        <tr><td>End-to-end latency<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n">3.52 / 4.37 s</td><td class="n">15.20 / 24.99 s</td><td class="n">6.72 / 8.81 s</td><td class="n"><b>3.12 / 4.24 s</b></td></tr>
+        <tr><td>First answer token<span class="dir" title="lower is better">↓</span> p50 / p90</td><td class="n"><b>0.44 / 0.50 s</b></td><td class="n">10.93 / 20.66 s</td><td class="n">3.71 / 5.70 s</td><td class="n">2.04 / 3.16 s</td></tr>
+        <tr><td>First token of any kind<span class="dir" title="lower is better">↓</span> p50</td><td class="n">0.435 s</td><td class="n">0.457 s</td><td class="n">0.489 s</td><td class="n">0.508 s</td></tr>
+        <tr><td>Reasoning tokens before the answer (median) <span class="dir-na">(count)</span></td><td class="n">0</td><td class="n">699</td><td class="n">202</td><td class="n">179</td></tr>
+        <tr><td>Output tokens (median) <span class="dir-na">(count)</span></td><td class="n">201</td><td class="n">977</td><td class="n">391</td><td class="n">380</td></tr>
+        <tr><td>Decode speed<span class="dir" title="higher is better">↑</span> (median)</td><td class="n">64.7 tok/s</td><td class="n">66.3 tok/s</td><td class="n">62.7 tok/s</td><td class="n"><b>145.6 tok/s</b></td></tr>
+        <tr><td>Valid outputs<span class="dir" title="higher is better">↑</span></td><td class="n">599 / 599</td><td class="n">577 / 585 (1 hit the 4,096-token cap)</td><td class="n">594 / 598</td><td class="n">596 / 596</td></tr>
       </tbody></table></div>
-    <figure class="figwrap"><svg class="lat-fig" viewBox="0 0 760 250" role="img" aria-label="Median per-call latency by subtask, Qwen thinking off vs Muse: Qwen 2.8 to 3.9 seconds, Muse 6.3 to 7.2 seconds">
+    <figure class="figwrap"><svg class="lat-fig" viewBox="0 0 760 270" role="img" aria-label="Median per-call latency by subtask: Qwen thinking off 2.8 to 3.9 s, Muse on plain vLLM 6.2 to 7.3 s, Muse with SGLang and DFlash 2.8 to 3.7 s">
       <g font-size="12" fill="#8a949e">
-        <text x="150" y="232">0 s</text><text x="290" y="232">2 s</text><text x="430" y="232">4 s</text><text x="570" y="232">6 s</text><text x="704" y="232">8 s</text>
+        <text x="150" y="262">0 s</text><text x="290" y="262">2 s</text><text x="430" y="262">4 s</text><text x="570" y="262">6 s</text><text x="704" y="262">8 s</text>
       </g>
-      <g stroke="#2d3640"><line x1="156" y1="16" x2="156" y2="216"/><line x1="296" y1="16" x2="296" y2="216"/><line x1="436" y1="16" x2="436" y2="216"/><line x1="576" y1="16" x2="576" y2="216"/><line x1="716" y1="16" x2="716" y2="216"/></g>
+      <g stroke="#2d3640"><line x1="156" y1="18" x2="156" y2="246"/><line x1="296" y1="18" x2="296" y2="246"/><line x1="436" y1="18" x2="436" y2="246"/><line x1="576" y1="18" x2="576" y2="246"/><line x1="716" y1="18" x2="716" y2="246"/></g>
       <g font-size="12.5" fill="#e6e9ed">
-        <text x="10" y="44">Ego-MC</text><text x="10" y="94">EgoConv</text><text x="10" y="144">EgoProactive</text><text x="10" y="194">EgoLongQA</text>
+        <text x="10" y="50">Ego-MC</text><text x="10" y="108">EgoConv</text><text x="10" y="166">EgoProactive</text><text x="10" y="224">EgoLongQA</text>
       </g>
-      <g fill="#4dabf7"><rect x="156" y="26" width="193" height="14" rx="2"/><rect x="156" y="76" width="267" height="14" rx="2"/><rect x="156" y="126" width="244" height="14" rx="2"/><rect x="156" y="176" width="272" height="14" rx="2"/></g>
-      <g fill="#ffa94d"><rect x="156" y="42" width="444" height="14" rx="2"/><rect x="156" y="92" width="482" height="14" rx="2"/><rect x="156" y="142" width="477" height="14" rx="2"/><rect x="156" y="192" width="507" height="14" rx="2"/></g>
-      <g font-size="11" fill="#e6e9ed" font-family="JetBrains Mono, monospace">
-        <text x="355" y="38">2.76</text><text x="606" y="54">6.35</text><text x="429" y="88">3.81</text><text x="644" y="104">6.89</text>
-        <text x="406" y="138">3.49</text><text x="639" y="154">6.81</text><text x="434" y="188">3.88</text><text x="669" y="204">7.24</text>
-      </g>
-      <g font-size="12" fill="#8a949e"><text x="10" y="9">Median latency per call (s) · ↓ lower is better</text><rect x="560" y="0" width="10" height="10" fill="#4dabf7"/><text x="576" y="9">Qwen3.8-27B</text><rect x="660" y="0" width="10" height="10" fill="#ffa94d"/><text x="676" y="9">Muse</text></g>
+      <g fill="#4dabf7"><rect x="156" y="24" width="193" height="13" rx="2"/><rect x="156" y="82" width="267" height="13" rx="2"/><rect x="156" y="140" width="244" height="13" rx="2"/><rect x="156" y="198" width="272" height="13" rx="2"/></g>
+      <g fill="#ffa94d"><rect x="156" y="39" width="436" height="13" rx="2"/><rect x="156" y="97" width="477" height="13" rx="2"/><rect x="156" y="155" width="465" height="13" rx="2"/><rect x="156" y="213" width="508" height="13" rx="2"/></g>
+      <g fill="#51cf66"><rect x="156" y="54" width="195" height="13" rx="2"/><rect x="156" y="112" width="220" height="13" rx="2"/><rect x="156" y="170" width="211" height="13" rx="2"/><rect x="156" y="228" width="256" height="13" rx="2"/></g>
+      <g font-size="11" fill="#e6e9ed" font-family="JetBrains Mono, monospace"><text x="355" y="35">2.76</text><text x="429" y="93">3.81</text><text x="406" y="151">3.49</text><text x="434" y="209">3.88</text><text x="598" y="50">6.23</text><text x="639" y="108">6.81</text><text x="627" y="166">6.64</text><text x="670" y="224">7.25</text><text x="357" y="65">2.79</text><text x="382" y="123">3.14</text><text x="373" y="181">3.01</text><text x="418" y="239">3.65</text></g>
+      <g font-size="12" fill="#8a949e"><text x="10" y="9">Median latency per call (s) · ↓ lower is better</text><rect x="330" y="0" width="10" height="10" fill="#4dabf7"/><text x="346" y="9">Qwen3.8-27B</text><rect x="440" y="0" width="10" height="10" fill="#ffa94d"/><text x="456" y="9">Muse · plain vLLM</text><rect x="590" y="0" width="10" height="10" fill="#51cf66"/><text x="606" y="9">Muse · SGLang + DFlash</text></g>
     </svg></figure>
     <ul class="points">
-      <li><b>Reasoning, not the model, sets the latency.</b> Prefill and decode speed are almost the same for both models. Muse always reasons in its <code>to=self</code> channel (its template has no off switch), so against non-reasoning Qwen it is 1.9× slower end to end and its answer starts about 3.3 s later. With Qwen's thinking turned on, Qwen reasons 3.5× longer than Muse (699 vs 202 tokens) and its answer starts about 3× later (10.9 s vs 3.7 s).</li>
-      <li><b>The chart</b> shows end-to-end latency for the default configurations (Qwen thinking off, Muse reasoning low) per subtask.</li>
-      <li><b>Under load.</b> During the full run, with 40–64 concurrent streams per GPU, median call latency rose to 10.2 s (Qwen) and 16.9 s (Muse) on Ego-MC and to 24.6 s and 38.6 s on Wearable AI. These numbers measure throughput settings, not the model.</li>
-      <li><b>Real time.</b> Neither configuration keeps up with a 2 s refresh cadence on one H200 even in isolation. On Ego-MC, one 5 s turn takes up to three sequential calls. Latency here is measured under media-time replay, where the stream waits for the model. Only latency was measured for Qwen with thinking on; its benchmark accuracy is not known yet.</li>
+      <li><b>Speculative decoding halves Muse's latency.</b> On its native stack Muse decodes at 146 tok/s instead of 63 (2.3×), so a call takes 3.1 s instead of 6.7 s and the answer starts after 2.0 s instead of 3.7 s. Muse still reasons before every answer, yet per call it is now as fast as Qwen with thinking off (3.5 s), and its answer starts 5× sooner than Qwen's with thinking on.</li>
+      <li><b>Without speculation the two models run at the same speed.</b> Prefill and plain decode are almost identical (first token 0.44 vs 0.49 s, 65 vs 63 tok/s). On the same plain server Muse is slower only because it reasons (202 tokens) before answering. With Qwen's thinking on, Qwen reasons 3.5× longer than Muse (699 tokens).</li>
+      <li><b>The chart</b> shows end-to-end latency per subtask for Qwen (thinking off) and Muse (reasoning low) on both serving stacks.</li>
+      <li><b>Under load.</b> During the full runs on plain vLLM, with 40–64 concurrent streams per GPU, median call latency rose to 10.2 s (Qwen) and 16.9 s (Muse) on Ego-MC and to 24.6 s and 38.6 s on Wearable AI. These numbers measure throughput settings, not the model. Speculative decoding helps most at low concurrency; its gain under heavy batching was not measured.</li>
+      <li><b>Real time.</b> No configuration keeps up with a 2 s refresh cadence on one H200, even in isolation (best: 3.1 s per call). On Ego-MC, one 5 s turn takes up to three sequential calls. Latency here is measured under media-time replay, where the stream waits for the model. Only latency was measured for Qwen with thinking on; its benchmark accuracy is not known yet.</li>
+    </ul>
+    <h3 id="native-serving">Muse on its native serving stack</h3>
+    <p>Meta's documentation (<a href="https://dev.meta.ai/docs/muse-glimmer/deploy">Run inference</a>, <a href="https://dev.meta.ai/docs/muse-glimmer/spec-decode">Speculative decoding</a>) lists vLLM with Meta's reasoning parser as the production path on NVIDIA GPUs, and documents DFlash speculative decoding for SGLang, llama.cpp and ExecuTorch. DFlash is a 5-layer block-diffusion drafter (<code>meta-models/Muse-Glimmer-30B-assistant</code>) that proposes a block of tokens which Muse verifies in one pass, so the output distribution is unchanged. We ran the official SGLang image <code>lmsysorg/sglang:dev-muse-glimmer</code> with the documented flags (<code>--reasoning-parser muse</code>, <code>--speculative-algorithm DFLASH</code>, block size 5), the same 16K context and the same requests. Meta's ExecuTorch server is not usable here: it accepts one image per request and serves one request at a time.</p>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>Muse Glimmer 30B serving setup</th><th class="n">Latency<span class="dir" title="lower is better">↓</span> p50 / p90</th><th class="n">First answer token<span class="dir" title="lower is better">↓</span> p50</th><th class="n">Decode speed<span class="dir" title="higher is better">↑</span></th><th class="n">Valid outputs<span class="dir" title="higher is better">↑</span></th></tr></thead>
+      <tbody>
+        <tr><td>vLLM, client-side parsing of the raw channels (all accuracy runs so far)</td><td class="n">6.72 / 8.81 s</td><td class="n">3.71 s</td><td class="n">62.7 tok/s</td><td class="n">594 / 598</td></tr>
+        <tr><td>vLLM + Meta's <code>muse_glimmer</code> reasoning parser (Meta's production path)</td><td class="n">7.06 / 9.19 s</td><td class="n">3.90 s</td><td class="n">59.8 tok/s</td><td class="n">594 / 598</td></tr>
+        <tr><td>SGLang, official image, no speculation</td><td class="n">6.80 / 8.85 s</td><td class="n">3.75 s</td><td class="n">62.5 tok/s</td><td class="n">593 / 595</td></tr>
+        <tr><td><b>SGLang + DFlash speculative decoding</b></td><td class="n"><b>3.12 / 4.24 s</b></td><td class="n"><b>2.04 s</b></td><td class="n"><b>145.6 tok/s</b></td><td class="n">596 / 596</td></tr>
+      </tbody></table></div>
+    <ul class="points">
+      <li><b>The engine and the parser do not matter; speculation does.</b> vLLM and SGLang run Muse at the same speed, and Meta's parser does not change it. All of the native speed-up comes from DFlash.</li>
+      <li><b>The parser does not change answers.</b> Re-parsing all 315,559 stored Muse outputs with Meta's parser changes 92 answers (0.03 %): reply text joined across several <code>to=user</code> messages, never a decision. The vLLM run with the parser reproduces the earlier run call for call (same seeds, same valid count).</li>
+      <li><b>Accuracy rerun.</b> Muse is being rerun on both benchmarks with SGLang + DFlash to check whether its scores change on the native stack; results will be added here.</li>
     </ul>
   <section class="exp-section"><h2 id="observations">Observations and Conclusion</h2>
     <ul class="points">
       <li><b>The two models sit at opposite operating points.</b> On Ego-MC, Muse flags mistakes often: recall 0.30–0.35 and precision 0.23–0.28, the highest F1 (0.28–0.29) of any model including the paper's, but it confirms few steps (about 160 "Success" messages vs Qwen's 380), so IC-Acc is 16–18. Qwen confirms steps as well as the paper's Qwen3.5-27B (IC-Acc 44.4 vs 45.5) but flags only about 6 % of mistakes. On EgoProactive the operating point depends on the prompt: with the starter-kit prompt Muse interrupts in 98 % of chunks (silent recall 0.02) and Qwen is balanced (0.40 / 0.59); with the Pro2Bench prompt Muse is the balanced one (0.76 / 0.35) and Qwen almost never speaks (interrupt recall 0.06).</li>
-      <li><b>Reasoning costs time.</b> Muse's reasoning delays its answer by about 3 s per call; Qwen's thinking mode delays it by about 10 s. Whether that time buys accuracy is untested for Qwen.</li>
+      <li><b>Reasoning costs time, and serving can win it back.</b> On a plain server Muse's reasoning delays its answer by about 3 s per call and Qwen's thinking mode by about 10 s. Muse's own DFlash speculative decoding cuts its call to 3.1 s, as fast as non-reasoning Qwen. Whether reasoning time buys accuracy is untested for Qwen.</li>
       <li><b>Conclusion.</b> With a sliding window and self-written memory, both models run end to end on full benchmarks under each benchmark's own protocol, match or exceed the zero-shot results of the Ego-MC-Bench paper, and Muse comes close to the best zero-shot Pro2Bench result, but neither is a usable proactive assistant yet: each is strong on one half of the task (Muse catching mistakes, Qwen confirming progress) and per-call latency is well above the refresh cadence. The results describe these models inside this wrapper and configuration, not the models in general.</li>
     </ul>
     <h3>Next steps</h3>
     <ul class="points">
+      <li>Finish the Muse accuracy rerun on its native serving stack (SGLang + DFlash, running) and compare with the plain-vLLM scores.</li>
+      <li>Give Qwen its own official speed-up (if any, e.g. multi-token-prediction speculative decoding) so both models are compared on their native stacks.</li>
       <li>Repeat Muse with several seeds and with greedy decoding, to measure how much sampling moves the scores (39 Ego-MC videos is a small set).</li>
       <li>Run Qwen with thinking on through the full benchmarks, to pair its latency with accuracy.</li>
       <li>Run the paper's whole-video setting on the same two models, to separate the effect of the window and memory from the effect of the model.</li>
@@ -219,7 +235,10 @@ python -m streaming_smoke score  --config configs/full_klone.yaml
 python -m streaming_smoke report --config configs/full_klone.yaml
 scripts/latency_study.sh muse30b 5 30                          # isolated single-stream latency
 scripts/latency_study.sh qwen27b 5 30
-scripts/latency_study.sh qwen27b 5 30 configs/full_klone_qwen_thinking.yaml</pre>
+scripts/latency_study.sh qwen27b 5 30 configs/full_klone_qwen_thinking.yaml
+ENGINE=sglang SPEC=dflash LAT_TAG=sglang_dflash \
+  scripts/latency_study.sh muse30b 5 30 configs/full_klone_server_parser.yaml   # Muse, native stack
+python tools/latency_table.py out.csv &lt;label&gt;=&lt;run_root&gt;/traces/&lt;model&gt; ...    # latency table</pre>
     <p class="note">Benchmark-specific commands are on each benchmark page.</p>
   </section>
 
