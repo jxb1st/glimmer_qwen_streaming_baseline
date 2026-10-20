@@ -79,3 +79,17 @@ a.tab.active { pointer-events: none; }
 .bench-link:hover { border-color: var(--accent); }
 .bench-link b { color: var(--accent); }
 .bench-link span { display: block; font-size: 13.5px; color: var(--muted); margin-top: 4px; }
+/* compact layout (2026-10-19): stat tiles, key-value setup tables, SVG charts */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.fact { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.fact b { font-size: 22px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.fact span { font-size: 12.5px; color: var(--muted); }
+.points.tight li { margin-bottom: 4px; line-height: 1.6; }
+.tbl.kv th { width: 170px; white-space: nowrap; color: var(--muted); font-size: 13px; font-weight: 600; }
+.tbl.kv td { font-size: 14px; }
+.tbl-details { margin: -8px 0 18px; }
+.tbl-details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.chart { display: block; width: 100%; min-width: 560px; height: auto; }
+.chart.chart-sq { max-width: 620px; min-width: 420px; }
+.chart rect, .chart circle { cursor: default; }
+@media (max-width: 640px) { .tbl.kv th { width: auto; white-space: normal; } }
