@@ -10,7 +10,7 @@
     });
     toc.appendChild(ol);
   }
-  var OPEN = ["glance", "results", "latency", "visualization"];   // result sections start open
+  var OPEN = ["results", "latency", "serving", "budget", "visualization"];   // result sections start open
   // Every other section starts collapsed; its heading toggles it. Without JavaScript all sections stay open.
   function setOpen(h, open) {
     var sec = h.parentNode, body = sec.querySelector(".sec-body");

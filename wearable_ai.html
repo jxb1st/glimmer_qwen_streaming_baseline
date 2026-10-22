@@ -26,11 +26,67 @@
     <p class="exp-summary">Qwen3.8-27B and Muse Glimmer 30B (8-frame window + self-written memory) on all 2,100 Wearable AI validation sessions with the official starter kit (with and without the 300 s rule), and EgoProactive under the Pro2Bench protocol.</p>
   </header>
 
-  <nav class="pagenav" aria-label="Pages"><a class="tab" href="index.html">Overview</a><a class="tab" href="ego_mc.html">Ego-MC-Bench</a><a class="tab active" href="wearable_ai.html" aria-current="page">Wearable AI</a></nav>
+  <nav class="pagenav" aria-label="Pages"><a class="tab" href="index.html">Efficiency</a><a class="tab" href="ego_mc.html">Ego-MC-Bench</a><a class="tab active" href="wearable_ai.html" aria-current="page">Wearable AI</a></nav>
   <nav class="exp-toc" data-toc aria-label="Sections"></nav>
 
   <section class="exp-section"><h2 id="setup">Setup and Protocol</h2>
-    <p class="note">Models, window, memory and serving: <a href="index.html#setup">overview</a>. Sources: <a href="https://huggingface.co/datasets/facebook/wearable-ai">starter kit</a>, <a href="https://arxiv.org/abs/2606.04970">Pro2Bench (arXiv 2606.04970)</a>.</p>
+    <h3>Models and streaming wrapper (shared by both benchmarks)</h3>
+    <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>Qwen3.8-27B</th><td>thinking off, greedy (thinking-low rerun in progress)</td></tr><tr><th>Muse Glimmer 30B</th><td><code>reasoning_strength=low</code>, official sampling (T 1.0, top-p 0.95, top-k 64), seeded; greedy on Pro2Bench</td></tr><tr><th>Window</th><td>8 most recent frames at 1 fps (long edge ≤ 672 px), media-time replay, never a future frame</td></tr><tr><th>Memory</th><td>JSON the model rewrites in a separate call, ≤ 512 tokens; the only state beyond the window</td></tr><tr><th>Serving</th><td>Qwen: vLLM. Muse: SGLang + DFlash + Meta's parser (reported); earlier plain-vLLM run shown for comparison. Efficiency: <a href='index.html'>Efficiency page</a></td></tr><tr><th>Hardware</th><td>UW Hyak Klone, preemptible H200 + A100 80 GB, shared resumable item queue</td></tr></tbody></table></div>
+    <p class="note">One replay step at media time <i>t</i>: public inputs up to <i>t</i> + own memory → benchmark answer, then a separate memory rewrite. Gold stays with the scorer.</p>
+    <figure class="figwrap"><svg class="pipe-fig" viewBox="0 0 1010 340" role="img" aria-label="One replay step: window and memory go into the model, which returns a decision, text and a new memory">
+  <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a949e"/></marker>
+  <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4dabf7"/></marker></defs>
+  <!-- stream -->
+  <text x="20" y="28" fill="#e6e9ed" font-size="13" font-weight="600">Video stream (media time)</text>
+  <rect x="20" y="40" width="300" height="14" rx="3" fill="#1a2129" stroke="#2d3640"/>
+  <rect x="150" y="40" width="112" height="14" rx="3" fill="rgba(77,171,247,.35)" stroke="#4dabf7"/>
+  <g fill="#8a949e" font-size="11"><text x="20" y="70">0 s</text><text x="246" y="70">t</text><text x="296" y="70">end</text></g>
+  <text x="150" y="88" fill="#4dabf7" font-size="11">8 frames ≤ t, 1 fps, nothing from the future</text>
+  <rect x="20" y="104" width="330" height="46" rx="6" fill="#1a2129" stroke="#2d3640"/>
+  <text x="32" y="123" fill="#e6e9ed" font-size="12" font-weight="600">Public text ≤ t</text>
+  <text x="32" y="140" fill="#8a949e" font-size="10.5">official prompt · question · dialogue history</text>
+  <rect x="20" y="166" width="330" height="46" rx="6" fill="#1a2129" stroke="#ffa94d"/>
+  <text x="32" y="185" fill="#ffa94d" font-size="12" font-weight="600">Previous memory (JSON, ≤ 512 tokens)</text>
+  <text x="32" y="202" fill="#8a949e" font-size="10.5">facts · steps · state · commitments · uncertainties</text>
+  <rect x="20" y="228" width="330" height="46" rx="6" fill="#1a2129" stroke="#2d3640"/>
+  <text x="32" y="247" fill="#e6e9ed" font-size="12" font-weight="600">Call instruction</text>
+  <text x="32" y="264" fill="#8a949e" font-size="10.5">decision (benchmark prompt) or memory update</text>
+  <!-- arrows into request -->
+  <path d="M262,47 H372 V150" fill="none" stroke="#8a949e" stroke-width="1.5"/>
+  <path d="M350,127 H372" fill="none" stroke="#8a949e" stroke-width="1.5"/>
+  <path d="M350,189 H372" fill="none" stroke="#8a949e" stroke-width="1.5"/>
+  <path d="M350,251 H372 V162" fill="none" stroke="#8a949e" stroke-width="1.5"/>
+  <path d="M372,156 H394" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <!-- model -->
+  <rect x="396" y="104" width="212" height="104" rx="8" fill="rgba(177,151,252,.12)" stroke="#b197fc"/>
+  <text x="502" y="130" text-anchor="middle" fill="#e6e9ed" font-size="13" font-weight="600">VLM, one request</text>
+  <text x="502" y="152" text-anchor="middle" fill="#b197fc" font-size="11">Qwen3.8-27B (thinking off)</text>
+  <text x="502" y="170" text-anchor="middle" fill="#b197fc" font-size="11">Muse Glimmer 30B (reasoning low)</text>
+  <text x="502" y="190" text-anchor="middle" fill="#8a949e" font-size="10">≤ 4,096 output tokens</text><text x="502" y="203" text-anchor="middle" fill="#8a949e" font-size="10">3.5 s (Qwen) / 6.7 s (Muse; 3.1 s with DFlash) per call</text>
+  <path d="M608,156 H630" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <!-- output -->
+  <rect x="632" y="96" width="210" height="120" rx="8" fill="#1a2129" stroke="#2d3640"/>
+  <text x="644" y="118" fill="#e6e9ed" font-size="12" font-weight="600">Output per call kind</text>
+  <text x="644" y="140" fill="#51cf66" font-size="11.5">decision: benchmark's format</text>
+  <text x="644" y="160" fill="#4dabf7" font-size="11.5">text: A–D, reply or $silent$</text>
+  <text x="644" y="180" fill="#ffa94d" font-size="11.5">memory: new JSON (bounded)</text>
+  <text x="644" y="204" fill="#8a949e" font-size="10">invalid memory → keep old, log failure</text>
+  <!-- memory loop -->
+  <path d="M842,180 H912 V300 H185 V214" fill="none" stroke="#ffa94d" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arb)"/>
+  <text x="548" y="322" text-anchor="middle" fill="#ffa94d" font-size="11">memory feeds the next call · reset per item and model (and per step in Ego-MC per-recipe)</text>
+  <!-- export -->
+  <path d="M842,156 H880" fill="none" stroke="#8a949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <rect x="882" y="130" width="118" height="52" rx="6" fill="#1a2129" stroke="#2d3640"/>
+  <text x="941" y="152" text-anchor="middle" fill="#e6e9ed" font-size="12" font-weight="600">Benchmark</text>
+  <text x="941" y="168" text-anchor="middle" fill="#8a949e" font-size="11">export + score</text>
+  <!-- private refs -->
+  <rect x="882" y="20" width="118" height="52" rx="6" fill="rgba(255,107,107,.08)" stroke="#ff6b6b" stroke-dasharray="4 3"/>
+  <text x="941" y="42" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="600">Private refs</text>
+  <text x="941" y="58" text-anchor="middle" fill="#8a949e" font-size="11">gold, timings</text>
+  <path d="M941,72 V128" fill="none" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <text x="941" y="92" text-anchor="middle" fill="#ff6b6b" font-size="10">scorer only,</text><text x="941" y="105" text-anchor="middle" fill="#ff6b6b" font-size="10">never the prompt</text>
+</svg></figure>
+    <h3>Wearable AI protocol · <a href="https://huggingface.co/datasets/facebook/wearable-ai">starter kit</a>, <a href="https://arxiv.org/abs/2606.04970">Pro2Bench (arXiv 2606.04970)</a></h3>
     <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>Data</th><td>all 2,100 val sessions (700 per task; the scorers need all rows)</td></tr><tr><th>EgoLongQA</th><td>one question after the video, no system prompt</td></tr><tr><th>EgoConv</th><td>turn <i>i</i> answered when its interval ends, own earlier answers as history</td></tr><tr><th>EgoProactive</th><td>decision per ~8 s chunk: <code>$interrupt$ …</code> / <code>$silent$</code>, gold history (last 4 turns)</td></tr><tr><th>Our change</th><td>8 recent frames + own memory where the kit puts frames; memory refresh every 2 s (10 s if &gt; 10 min); 4,096-token budget</td></tr><tr><th>Scoring</th><td>starter-kit <code>run_evaluation.py</code>, unmodified</td></tr><tr><th>300 s rule</th><td>per-call isolated H200 time estimated from tokens and each setup's measured speed (Muse: 62.5 tok/s plain vLLM, 145.6 tok/s DFlash); over 300 s → exported empty</td></tr><tr><th>Pro2Bench</th><td>the paper that introduces EgoProactive (arXiv 2606.04970): App. G No-Plan prompts verbatim, memory in the visual-summary slot, greedy, G-mean F1 (PQS not computed)</td></tr></tbody></table></div>
   </section>
 
