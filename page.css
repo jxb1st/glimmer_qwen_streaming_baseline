@@ -93,3 +93,4 @@ a.tab.active { pointer-events: none; }
 .chart.chart-sq { max-width: 620px; min-width: 420px; }
 .chart rect, .chart circle { cursor: default; }
 @media (max-width: 640px) { .tbl.kv th { width: auto; white-space: normal; } }
+.tbl tr.grp td { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .3px; padding-top: 12px; background: transparent; }
