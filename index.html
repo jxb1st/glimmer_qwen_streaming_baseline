@@ -60,21 +60,7 @@
   </section>
 
   <section class="exp-section"><h2 id="memory">Memory (Text Compression)</h2>
-    <p class="note">Everything older than the 8-frame window survives only as a JSON memory that the model rewrites in a separate call: every 2 s of media on Wearable AI (10 s for videos over 10 min) and after each decision; once per 5 s turn on Ego-MC.</p>
-    <div class="facts"><div class="fact"><b>89 %</b><span>of Wearable AI calls are memory updates</span></div><div class="fact"><b>33 %</b><span>of Ego-MC per-recipe calls</span></div><div class="fact"><b>~1,100 chars</b><span>saved memory, median (≈270 tokens; cap 512)</span></div><div class="fact"><b>567 tok</b><span>Muse update-call output, median (292 reasoning)</span></div></div>
-    <div class="tblwrap"><table class="tbl">
-      <thead><tr><th>Run</th><th class="n">All calls <span class="dir-na">(count)</span></th><th class="n">Memory updates <span class="dir-na">(count)</span></th><th class="n">Share</th></tr></thead>
-      <tbody>
-        <tr><td>Wearable AI official · Qwen</td><td class="n">138,964</td><td class="n">123,848</td><td class="n">89 %</td></tr>
-        <tr><td>Wearable AI official · Muse (SGLang + DFlash)</td><td class="n">138,919</td><td class="n">123,858</td><td class="n">89 %</td></tr>
-        <tr><td>Ego-MC per-recipe · Qwen</td><td class="n">13,160</td><td class="n">4,258</td><td class="n">32 %</td></tr>
-        <tr><td>Ego-MC per-recipe · Muse (SGLang + DFlash)</td><td class="n">18,623</td><td class="n">6,135</td><td class="n">33 %</td></tr>
-      </tbody></table></div>
-    <ul class="points tight"><li><b>The update calls, not the memory text, cost compute.</b> The memory adds ≤ 512 of ~4,100 prompt tokens per call; a Muse update call writes 567 tokens (292 reasoning + the JSON), vs 235 for an EgoProactive decision.</li><li><b>Size is capped twice:</b> the prompt sets entry and word limits; code keeps the memory under 2,048 characters and 512 tokens by dropping the oldest entries. Saved memories are ~1,100 characters (p90 1,322); the code cap never fired in the measured sample.</li><li><b>Invalid JSON keeps the previous memory.</b> Memory resets per item and model, and per step in Ego-MC per-recipe.</li><li>Per-call latencies above mix decision and memory calls (first 30 calls of each item); per-sample cost is dominated by how often memory is refreshed.</li></ul>
-    <h3>Context slot of the Wearable AI memory update</h3>
-    <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>EgoLongQA</th><td><code>No question has been asked yet; one will come at the end of the video, so keep broad details.</code></td></tr><tr><th>EgoConv</th><td><code>A conversation with the person; turns so far: Q: … A: …</code></td></tr><tr><th>EgoProactive</th><td><code>The person asked: {query}</code></td></tr></tbody></table></div>
-    <details class="tbl-details"><summary>Memory prompts, verbatim (input prefix, update calls, Pro2Bench summary slot)</summary>
-      <div class="prompt variant"><div class="prompt-head">What precedes the first user message <span class="prompt-note">our wrapper, in place of the starter kit's sampled frames</span></div>
+    <div class="prompt variant"><div class="prompt-head">What precedes the first user message <span class="prompt-note">our wrapper, in place of the starter kit's sampled frames</span></div>
         <pre class="prompt-body">Most recent frames (8), oldest first:
 [frame at 121.0s] &lt;image&gt; … [frame at 128.0s] &lt;image&gt;
 Your memory of earlier footage (written by you):
@@ -102,7 +88,8 @@ Reply with ONE JSON object and nothing else, in exactly this shape:
 Here is the most recent conversation between the user and the assistant:
 User: {user_utterance}
 Assistant: {assistant_response}</pre></div>
-    </details>
+    <h3>[context] in the Wearable AI memory update</h3>
+    <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>EgoLongQA</th><td><code>No question has been asked yet; one will come at the end of the video, so keep broad details.</code></td></tr><tr><th>EgoConv</th><td><code>A conversation with the person; turns so far: Q: … A: …</code></td></tr><tr><th>EgoProactive</th><td><code>The person asked: {query}</code></td></tr></tbody></table></div>
   </section>
 
   <section class="exp-section"><h2 id="budget">Compute Budget</h2>
