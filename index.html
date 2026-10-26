@@ -30,7 +30,7 @@
   <nav class="exp-toc" data-toc aria-label="Sections"></nav>
 
   <section class="exp-section"><h2 id="esetup">Setup</h2>
-    <ul class="points tight"><li><b>Frame rate:</b> 1 fps.</li><li><b>Sliding window:</b> the 8 most recent frames (8 s of video, long edge ≤ 672 px).</li><li><b>Qwen3.8-27B:</b> Qwen's 27B dense vision-language model (causal LM with a vision encoder, built on Qwen3.5), run with thinking off and with thinking at <code>reasoning_effort=low</code>.</li><li><b>Muse Glimmer 30B:</b> Meta's ~30B dense causal transformer with a dedicated perception encoder, distilled from Muse Spark for agentic tasks; it always reasons before answering and runs at <code>reasoning_strength=low</code>.</li></ul>
+    <ul class="points tight"><li><b>Frame rate:</b> 1 fps.</li><li><b>Sliding window:</b> the 8 most recent frames (8 s of video, long edge ≤ 672 px).</li><li><b>Calls on Ego-MC:</b> one turn every 5 s, up to 3 calls (step complete? → mistake? → memory update).</li><li><b>Calls on Wearable AI:</b> a memory update every 2 s, plus one answer call at each decision point.</li><li><b>Qwen3.8-27B:</b> Qwen's 27B dense vision-language model (causal LM with a vision encoder, built on Qwen3.5), run with thinking off and with thinking at <code>reasoning_effort=low</code>.</li><li><b>Muse Glimmer 30B:</b> Meta's ~30B dense causal transformer with a dedicated perception encoder, distilled from Muse Spark for agentic tasks; it always reasons before answering and runs at <code>reasoning_strength=low</code>.</li></ul>
   </section>
 
   <section class="exp-section"><h2 id="latency">Latency</h2>
