@@ -48,36 +48,38 @@
 
 
   <section class="exp-section"><h2 id="memory">Memory (Text Compression)</h2>
+    <h3>Wearable AI</h3>
     <div class="prompt variant"><div class="prompt-head">What precedes the first user message <span class="prompt-note">our wrapper, in place of the starter kit's sampled frames</span></div>
         <pre class="prompt-body">Most recent frames (8), oldest first:
 [frame at 121.0s] &lt;image&gt; … [frame at 128.0s] &lt;image&gt;
 Your memory of earlier footage (written by you):
 {&quot;observed_facts&quot;: [...], &quot;completed_steps&quot;: [...], &quot;current_state&quot;: &quot;...&quot;, &quot;pending_commitments&quot;: [...], &quot;uncertainties&quot;: [...]}</pre></div>
-      <div class="prompt variant"><div class="prompt-head">Memory update <span class="prompt-note">ours, a separate call; [context] = no question yet / turns so far / the user's query</span></div>
+    <div class="prompt variant"><div class="prompt-head">Memory update <span class="prompt-note">ours, a separate call; [context] = no question yet / turns so far / the user's query</span></div>
         <pre class="prompt-body">You are watching a live first-person video but only ever see the most recent frames (each labeled with its time in seconds) plus a short written memory that you yourself wrote on the previous update. Nothing else about earlier footage survives, so the memory must carry everything you may need later: what the person did and where, objects and their locations, text you saw, counts, the current state, and what was said.
 Context so far: [context]
 Hard limits: observed_facts at most 8 entries, completed_steps at most 6, pending_commitments at most 3, uncertainties at most 3; every entry at most 15 words and prefixed with its time (e.g. &quot;12s: ...&quot;); current_state at most 40 words. Merge or drop older entries instead of exceeding these limits. Describe only what the frames support.
 Reply with ONE JSON object and nothing else, in exactly this shape:
 {&quot;observed_facts&quot;: [...], &quot;completed_steps&quot;: [...], &quot;current_state&quot;: &quot;...&quot;, &quot;pending_commitments&quot;: [...], &quot;uncertainties&quot;: [...]}</pre></div>
-      <div class="prompt variant"><div class="prompt-head">What precedes each prompt <span class="prompt-note">our wrapper</span></div>
+    <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>[context] · EgoLongQA</th><td><code>No question has been asked yet; one will come at the end of the video, so keep broad details.</code></td></tr><tr><th>[context] · EgoConv</th><td><code>A conversation with the person; turns so far: Q: … A: …</code></td></tr><tr><th>[context] · EgoProactive</th><td><code>The person asked: {query}</code></td></tr></tbody></table></div>
+    <h3>Ego-MC-Bench</h3>
+    <div class="prompt variant"><div class="prompt-head">What precedes each prompt <span class="prompt-note">our wrapper</span></div>
         <pre class="prompt-body">Most recent frames (8), oldest first:
 [frame at 2.2s] &lt;image&gt; … [frame at 9.2s] &lt;image&gt;
 Your memory of earlier footage (written by you on the previous turn):
 {"observed_facts": [...], "completed_steps": [...], "current_state": "...", "pending_commitments": [...], "uncertainties": [...]}</pre></div>
-      <div class="prompt variant"><div class="prompt-head">Turn step 3: memory update <span class="prompt-note">ours, not from the paper</span></div>
+    <div class="prompt variant"><div class="prompt-head">Turn step 3: memory update <span class="prompt-note">ours, not from the paper</span></div>
         <pre class="prompt-body">You are watching a live cooking stream but only ever see the most recent frames (each labeled with its time in seconds) plus a short written memory that you yourself wrote on the previous turn. Nothing else about earlier footage survives, so the memory must carry everything you will need later: what the person has done for the current recipe step, quantities and counts, the current state, and mistakes already pointed out.
 Current recipe step: [recipe_step].
 Feedback already given to the person in the last minute: [prev_detected_mistakes].
 Hard limits: observed_facts at most 8 entries, completed_steps at most 6, pending_commitments at most 3, uncertainties at most 3; every entry at most 15 words and prefixed with its time (e.g. "12s: ..."); current_state at most 40 words. Merge or drop older entries instead of exceeding these limits. Describe only what the frames support.
 Reply with ONE JSON object and nothing else, in exactly this shape:
 {"observed_facts": [...], "completed_steps": [...], "current_state": "...", "pending_commitments": [...], "uncertainties": [...]}</pre></div>
-      <div class="prompt user"><div class="prompt-head">User message <span class="prompt-note">after the chunk's 8 frames; No-Plan duplex template, visual summary = our memory</span></div>
+    <h3>Pro2Bench (EgoProactive)</h3>
+    <div class="prompt user"><div class="prompt-head">User message <span class="prompt-note">after the chunk's 8 frames; No-Plan duplex template, visual summary = our memory</span></div>
         <pre class="prompt-body">Here is the summary of the recent visual context: {visual_summary}
 Here is the most recent conversation between the user and the assistant:
 User: {user_utterance}
 Assistant: {assistant_response}</pre></div>
-    <h3>[context] in the Wearable AI memory update</h3>
-    <div class="tblwrap"><table class="tbl kv"><tbody><tr><th>EgoLongQA</th><td><code>No question has been asked yet; one will come at the end of the video, so keep broad details.</code></td></tr><tr><th>EgoConv</th><td><code>A conversation with the person; turns so far: Q: … A: …</code></td></tr><tr><th>EgoProactive</th><td><code>The person asked: {query}</code></td></tr></tbody></table></div>
   </section>
 
 
