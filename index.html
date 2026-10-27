@@ -43,6 +43,7 @@
         <tr><td>First answer token<span class="dir" title="lower is better">↓</span> p50</td><td class="n"><b>0.44 s</b></td><td class="n">2.25 s</td><td class="n">10.93 s</td><td class="n">3.71 s</td><td class="n">2.04 s</td></tr>
         <tr><td>Decode speed<span class="dir" title="higher is better">↑</span> (median)</td><td class="n">64.7 tok/s</td><td class="n">64.4 tok/s</td><td class="n">66.3 tok/s</td><td class="n">62.7 tok/s</td><td class="n"><b>145.6 tok/s</b></td></tr>
       </tbody></table></div>
+    <ul class="points tight"><li><b>Latency:</b> time from sending a call to the end of the full reply (p50 = median call, p90 = slow calls).</li><li><b>First answer token:</b> time until the answer itself starts, after any reasoning; what a user waits for.</li><li><b>Decode speed:</b> tokens generated per second once output starts; set by the serving stack.</li></ul>
   </section>
 
 
